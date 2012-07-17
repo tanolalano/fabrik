@@ -16,7 +16,7 @@ require_once('fabcontrollerform.php');
  * Element controller class.
  *
  * @package		Joomla.Administrator
- * @subpackage	com_fabrik
+ * @subpackage	Fabrik
  * @since		1.6
  */
 class FabrikControllerElement extends FabControllerForm
@@ -90,11 +90,15 @@ class FabrikControllerElement extends FabControllerForm
 		$model = $pluginManager->getPlugIn('field', 'element');
 		$id = JRequest::getInt('id');
 		$model->setId($id);
-		$fabrikDb = $model->getListModel()->getDB();
-		$fabrikDb->setQuery($app->getUserState('com_fabrik.q'));
-		if (!$fabrikDb->query())
+		$db = $model->getListModel()->getDb();
+		$oldName = str_replace('`', '', $app->getUserState('com_fabrik.oldname'));
+		$newName = $app->getUserState('com_fabrik.newname');
+		$model->updateJoinedPks($oldName, $newName);
+		$db->setQuery($app->getUserState('com_fabrik.q'));
+		
+		if (!$db->query())
 		{
-			JError::raiseWarning(E_WARNING, $fabrikDb->stderr(true));
+			JError::raiseWarning(E_WARNING, $db->stderr(true));exit;
 			$msg = '';
 		}
 		else

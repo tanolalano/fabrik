@@ -116,6 +116,9 @@ var DateFilter = new Class({
 	},
 	
 	update: function (calendar, date) {
+		// $$$ hugh - no such method.  Think this probably got added by mistake,
+		// during mass edit for 'inline edit' fix?
+		//this.getElement();
 		if (date) {
 			if (typeOf(date) === 'string') {
 				date = Date.parse(date);

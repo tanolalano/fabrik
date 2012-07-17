@@ -39,7 +39,7 @@ var FbDateTime = new Class({
 	},
 	
 	setUp: function () {
-		if (this.options.editable) {
+		if (this.options.editable && !this.options.hidden) {
 			this.watchButtons();
 			if (this.options.typing === false) {
 				this.disableTyping();
@@ -368,6 +368,7 @@ var FbDateTime = new Class({
 	 * takes a date object or string
 	 */
 	update: function (val) {
+		this.getElement();
 		if (val === 'invalid date') {
 			fconsole(this.element.id + ': date not updated as not valid');
 			return;

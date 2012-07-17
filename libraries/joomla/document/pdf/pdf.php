@@ -1,6 +1,5 @@
 <?php
 /**
- * @version		$Id: pdf.php 14401 2010-01-26 14:10:00Z louis $
  * @package		Joomla.Framework
  * @subpackage	Document
  * @copyright	Copyright (C) 2005 - 2010 Open Source Matters. All rights reserved.
@@ -15,41 +14,56 @@
 // Check to ensure this file is within the rest of the framework
 defined('JPATH_BASE') or die();
 
-require_once(JPATH_LIBRARIES .'/joomla/document/html/html.php');
+require_once JPATH_LIBRARIES . '/joomla/document/html/html.php';
 
 /**
  * DocumentPDF class, provides an easy interface to parse and display a pdf document
  *
- * @package		Joomla.Framework
- * @subpackage	Document
- * @since		1.5
+ * @package     Joomla.Framework
+ * @subpackage  Document
+ * @since       1.5
  */
 class JDocumentpdf extends JDocumentHTML
 {
-	private $engine	= null;
+	private $engine = null;
 
 	private $name = 'joomla';
 
 	/**
-	 * Class constructore
-	 * @param	array	$options Associative array of options
+	 * Class constructor
+	 *
+	 * @param   array  $options  Associative array of options
 	 */
 
-	function __construct($options = array())
+	public function __construct($options = array())
 	{
 		parent::__construct($options);
 
-		//set mime type
-		$this->_mime = 'application/pdf';
+		$config = JComponentHelper::getParams('com_fabrik');
+		if ($config->get('pdf_debug', true))
+		{
+			$this->setMimeEncoding('text/html');
+			$this->_type = 'html';
+		}
+		else
+		{
+			// Set mime type
+			$this->_mime = 'application/pdf';
 
-		//set document type
-		$this->_type = 'pdf';
-
+			// Set document type
+			$this->_type = 'pdf';
+		}
 		if (!$this->iniDomPdf())
 		{
 			JError::raiseError(JText::_('COM_FABRIK_ERR_NO_PDF_LIB_FOUND'));
 		}
 	}
+
+	/**
+	 * Set up DomPDF engine
+	 *
+	 * @return  bool
+	 */
 
 	protected function iniDomPdf()
 	{
@@ -67,15 +81,18 @@ class JDocumentpdf extends JDocumentHTML
 		{
 			define('DOMPDF_FONT_CACHE', $config->get('tmp_path'));
 		}
-		require_once($file);
+		require_once $file;
+
 		// Default settings are a portrait layout with an A4 configuration using millimeters as units
-		$this->engine =new DOMPDF();
+		$this->engine = new DOMPDF;
 		return true;
 	}
 
 	/**
 	 * Sets the document name
+	 *
 	 * @param   string   $name	Document name
+	 *
 	 * @return  void
 	 */
 
@@ -96,21 +113,29 @@ class JDocumentpdf extends JDocumentHTML
 
 	/**
 	 * Render the document.
-	 * @access public
+	 *
 	 * @param boolean 	$cache		If true, cache the output
 	 * @param array		$params		Associative array of attributes
+	 *
 	 * @return	string
 	 */
 
-	function render($cache = false, $params = array())
+	public function render($cache = false, $params = array())
 	{
 		$pdf = $this->engine;
 		$data = parent::render();
- 		$this->fullPaths($data);
-		//echo $data;exit;
+		$this->fullPaths($data);
 		$pdf->load_html($data);
-		$pdf->render();
-		$pdf->stream($this->getName() . '.pdf');
+		$config = JComponentHelper::getParams('com_fabrik');
+		if ($config->get('pdf_debug', true))
+		{
+			return $pdf->output_html();
+		}
+		else
+		{
+			$pdf->render();
+			$pdf->stream($this->getName() . '.pdf');
+		}
 		return '';
 	}
 
@@ -131,10 +156,12 @@ class JDocumentpdf extends JDocumentHTML
 		}
 	}
 
-
 	/**
-	 * parse relative images a hrefs and style sheets to full paths
-	 * @param	string	&$data
+	 * Parse relative images a hrefs and style sheets to full paths
+	 *
+	 * @param	string	&$data  data
+	 *
+	 * @return  void
 	 */
 
 	private function fullPaths(&$data)
@@ -156,7 +183,7 @@ class JDocumentpdf extends JDocumentHTML
 						$img['src'] = $base . $img['src'];
 					}
 				}
-				//links
+				// Links
 				$as = $ok->xpath('//a');
 				foreach ($as as &$a)
 				{
@@ -165,8 +192,8 @@ class JDocumentpdf extends JDocumentHTML
 						$a['href'] = $base . $a['href'];
 					}
 				}
-			
-				// css files.
+
+				// CSS files.
 				$links = $ok->xpath('//link');
 				foreach ($links as &$link)
 				{
@@ -177,18 +204,24 @@ class JDocumentpdf extends JDocumentHTML
 				}
 				$data = $ok->asXML();
 			}
-		} catch (Exception $err)
+		}
+		catch (Exception $err)
 		{
-			//oho malformed html - if we are debugging the site then show the errors
+			// Oho malformed html - if we are debugging the site then show the errors
 			// otherwise continue, but it may mean that images/css/links are incorrect
 			$errors = libxml_get_errors();
-			if (JDEBUG)
+			$config = JComponentHelper::getParams('com_fabrik');
+
+			// Don't show the errors if we want to debug the actual pdf html
+			if (JDEBUG && $config->get('pdf_debug', true) === true)
 			{
-				echo "<pre>";print_r($errors);echo "</pre>";
+				echo "<pre>";
+				print_r($errors);
+				echo "</pre>";
 				exit;
-			} 
+			}
 		}
-		
+
 	}
 
 }

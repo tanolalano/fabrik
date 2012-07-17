@@ -1,14 +1,20 @@
 <?php
 /**
- * Plugin element to render field with PHP calculated value
- * @package fabrikar
- * @author Rob Clayburn
- * @copyright (C) Rob Clayburn
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.element.calc
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 // Check to ensure this file is included in Joomla!
 defined('_JEXEC') or die();
+
+/**
+ * Plugin element to render field with PHP calculated value
+ *
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.element.calc
+ */
 
 class plgFabrik_ElementCalc extends plgFabrik_Element
 {
@@ -24,7 +30,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 	{
 		if (!isset($this->_default))
 		{
-			$w = new FabrikWorker();
+			$w = new FabrikWorker;
 			$element = $this->getElement();
 			$default = $w->parseMessageForPlaceHolder($element->default, $data, true, true);
 			if ($element->eval == '1')
@@ -39,7 +45,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 
 	private function _getV($data, $repeatCounter)
 	{
-		$w = new FabrikWorker();
+		$w = new FabrikWorker;
 		$groupModel = $this->getGroup();
 		$joinid = $groupModel->getGroup()->join_id;
 		$name = $this->getFullName(false, true, false);
@@ -95,13 +101,15 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 		{
 			if ($groupModel->canRepeat())
 			{
-				if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid]) && array_key_exists($name, $data['join'][$joinid]) && array_key_exists($repeatCounter, $data['join'][$joinid][$name]))
+				if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid])
+					&& array_key_exists($name, $data['join'][$joinid]) && array_key_exists($repeatCounter, $data['join'][$joinid][$name]))
 				{
 					$default = $data['join'][$joinid][$name][$repeatCounter];
 				}
 				else
 				{
-					if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid]) && array_key_exists($name, $data['join'][$joinid]) && array_key_exists($repeatCounter, $data['join'][$joinid][$name]))
+					if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid])
+						&& array_key_exists($name, $data['join'][$joinid]) && array_key_exists($repeatCounter, $data['join'][$joinid][$name]))
 					{
 						$default = $data['join'][$joinid][$name][$repeatCounter];
 					}
@@ -109,13 +117,15 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			}
 			else
 			{
-				if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid]) && array_key_exists($name, $data['join'][$joinid]))
+				if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid])
+					&& array_key_exists($name, $data['join'][$joinid]))
 				{
 					$default = $data['join'][$joinid][$name];
 				}
 				else
 				{
-					if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid]) && array_key_exists($rawname, $data['join'][$joinid]))
+					if (array_key_exists('join', $data) && array_key_exists($joinid, $data['join']) && is_array($data['join'][$joinid])
+						&& array_key_exists($rawname, $data['join'][$joinid]))
 					{
 						$default = $data['join'][$joinid][$rawname];
 					}
@@ -175,7 +185,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 		}
 		return $default;
 	}
-	
+
 	/**
 	 * determines the value for the element in the form view
 	 * @param	array	data
@@ -196,8 +206,8 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			$element->default = $this->_getV($data, $repeatCounter);
 			if ($element->default === '')
 			{ //query string for joined data
-				// $$$ rob commented out as $name not defined and not sure what t should be
-				//$element->default = JArrayHelper::getValue($data, $name);
+			// $$$ rob commented out as $name not defined and not sure what t should be
+			//$element->default = JArrayHelper::getValue($data, $name);
 			}
 			$formModel = $this->getForm();
 			//stops this getting called from form validation code as it messes up repeated/join group validations
@@ -224,7 +234,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 	public function preProcess($c)
 	{
 		$params = $this->getParams();
-		$w = new FabrikWorker();
+		$w = new FabrikWorker;
 		$form = $this->getForm();
 		$d = $form->_formData;
 		$joindata = JArrayHelper::getValue($d, 'join', array());
@@ -259,7 +269,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			if ($group->isJoin())
 			{
 				$key = str_replace("][", '.', $key);
-				$key = str_replace(array('[',']'), '.', $key) . $c;
+				$key = str_replace(array('[', ']'), '.', $key) . $c;
 				$rawkey = str_replace($shortkey, $shortkey . '_raw', $key);
 			}
 			else
@@ -270,7 +280,8 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 		}
 		else
 		{
-			if ($group->isJoin()) {
+			if ($group->isJoin())
+			{
 				$key = str_replace('][', '.', $key);
 				$key = str_replace(array('[', ']'), '.', $key);
 				$key = rtrim($key, '.');
@@ -349,7 +360,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			$d = $data;
 			$res = $listModel->parseMessageForRowHolder($cal, $data, true);
 			$res = @eval($res);
-			FabrikWorker::logEval($res, 'Caught exception on eval in '.$element->name.'::renderListData() : %s');
+			FabrikWorker::logEval($res, 'Caught exception on eval in ' . $element->name . '::renderListData() : %s');
 			if ($format != '')
 			{
 				$res = sprintf($format, $res);
@@ -409,7 +420,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			{
 				/*
 				$str[] = '<input class="fabrikinput inputbox" disabled="disabled" name="'.$name.'" id="'.$id.'" value="'.$value.'" size="'.$element->width.'" />';
-				*/
+				 */
 				$str[] = '<span class="fabrikinput" name="' . $name . '" id="' . $id . '">' . $value . '</span>';
 			}
 		}
@@ -418,16 +429,20 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			/* make a hidden field instead*/
 			$str[] = '<input type="hidden" class="fabrikinput" name="' . $name . '" id="' . $id . '" value="' . $value . '" />';
 		}
-		$str[] = FabrikHelperHTML::image("ajax-loader.gif", 'form', @$this->tmpl, array('alt' => JText::_('PLG_ELEMENT_CALC_LOADING'), 'style' => 'display:none;padding-left:10px;', 'class' => 'loader'));
+		$str[] = FabrikHelperHTML::image("ajax-loader.gif", 'form', @$this->tmpl,
+			array('alt' => JText::_('PLG_ELEMENT_CALC_LOADING'), 'style' => 'display:none;padding-left:10px;', 'class' => 'loader'));
 		return implode("\n", $str);
 	}
 
 	/**
-	 * return the javascript to create an instance of the class defined in formJavascriptClass
-	 * @return	string	javascript to create instance. Instance name must be 'el'
+	 * Returns javascript which creates an instance of the class defined in formJavascriptClass()
+	 *
+	 * @param   int  $repeatCounter  repeat group counter
+	 *
+	 * @return  string
 	 */
 
-	function elementJavascript($repeatCounter)
+	public function elementJavascript($repeatCounter)
 	{
 		$id = $this->getHTMLId($repeatCounter);
 		$opts = $this->getElementJSOptions($repeatCounter);
@@ -459,7 +474,7 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 		$this->setId(JRequest::getInt('element_id'));
 		$this->getElement();
 		$params = $this->getParams();
-		$w = new FabrikWorker();
+		$w = new FabrikWorker;
 		$d = JRequest::get('request');
 		$this->getFormModel()->_data = $d;
 		$this->swapValuesForLabels($d);
@@ -473,10 +488,12 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 	}
 
 	/**
-	 * find the sum from a set of data
-	 * @param	object	list model
-	 * @param	string	$label
-	 * @return	string	sum result
+	 * Get sum query
+	 *
+	 * @param   object  &$listModel  list model
+	 * @param   string  $label       label
+	 *
+	 * @return string
 	 */
 
 	protected function getSumQuery(&$listModel, $label = "'calc'")
@@ -489,7 +506,8 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			$table = $listModel->getTable();
 			$joinSQL = $listModel->_buildQueryJoin();
 			$whereSQL = $listModel->_buildQueryWhere();
-			return "SELECT SEC_TO_TIME(SUM(TIME_TO_SEC($name))) AS value, $label AS label FROM " . $db->nameQuote($table->db_table_name) . " $joinSQL $whereSQL";
+			return "SELECT SEC_TO_TIME(SUM(TIME_TO_SEC($name))) AS value, $label AS label FROM " . $db->nameQuote($table->db_table_name)
+				. " $joinSQL $whereSQL";
 		}
 		else
 		{
@@ -498,10 +516,12 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 	}
 
 	/**
-	 * build the query for the avg caclculation
-	 * @param	model	$listModel
-	 * @param	string	$label the label to apply to each avg
-	 * @return	string	sql statement
+	 * Build the query for the avg calculation
+	 *
+	 * @param   model   &$listModel  list model
+	 * @param   string  $label       the label to apply to each avg
+	 *
+	 * @return  string	sql statement
 	 */
 
 	protected function getAvgQuery(&$listModel, $label = "'calc'")
@@ -514,7 +534,8 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			$table = $listModel->getTable();
 			$joinSQL = $listModel->_buildQueryJoin();
 			$whereSQL = $listModel->_buildQueryWhere();
-			return "SELECT SEC_TO_TIME(AVG(TIME_TO_SEC($name))) AS value, $label AS label FROM " . $db->nameQuote($table->db_table_name) . " $joinSQL $whereSQL";
+			return "SELECT SEC_TO_TIME(AVG(TIME_TO_SEC($name))) AS value, $label AS label FROM " . $db->nameQuote($table->db_table_name)
+				. " $joinSQL $whereSQL";
 		}
 		else
 		{
@@ -523,10 +544,12 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 	}
 
 	/**
-	 * build the query for the avg caclculation
-	 * @param	model	$listModel
-	 * @param	string	$label the label to apply to each avg
-	 * @return	string	sql statement
+	 * Get a query for our media query
+	 *
+	 * @param   object  &$listModel  list
+	 * @param   string  $label       label
+	 *
+	 * @return string
 	 */
 
 	protected function getMedianQuery(&$listModel, $label = "'calc'")
@@ -539,7 +562,8 @@ class plgFabrik_ElementCalc extends plgFabrik_Element
 			$table = $listModel->getTable();
 			$joinSQL = $listModel->_buildQueryJoin();
 			$whereSQL = $listModel->_buildQueryWhere();
-			return "SELECT SEC_TO_TIME(TIME_TO_SEC($name)) AS value, $label AS label FROM " . $db->nameQuote($table->db_table_name) . " $joinSQL $whereSQL";
+			return "SELECT SEC_TO_TIME(TIME_TO_SEC($name)) AS value, $label AS label FROM " . $db->nameQuote($table->db_table_name)
+				. " $joinSQL $whereSQL";
 		}
 		else
 		{

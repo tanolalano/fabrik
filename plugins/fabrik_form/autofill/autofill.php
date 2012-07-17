@@ -1,13 +1,17 @@
 <?php
-
 /**
- * Allows you to observe an element, and when it its blurred asks if you want to lookup
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.form.autofill
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
+ */
+/**
  * other records in the table to auto fill in the rest of the form with that records data
  *
  * Does not alter the record you search for but creates a new record
  *
- * @package Joomla
- * @subpackage Fabrik
+ * @package     Joomla
+ * @subpackage  Fabrik
  * @author Rob Clayburn
  * @copyright (C) Rob Clayburn
  * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL
@@ -16,21 +20,34 @@
 // Check to ensure this file is included in Joomla!
 defined('_JEXEC') or die();
 
-//require the abstract plugin class
-require_once(COM_FABRIK_FRONTEND . '/models/plugin-form.php');
+// Require the abstract plugin class
+require_once COM_FABRIK_FRONTEND . '/models/plugin-form.php';
 
-class plgFabrik_FormAutofill extends plgFabrik_Form {
+/**
+ * Allows you to observe an element, and when it its blurred asks if you want to lookup related data to fill
+ * into additional fields
+ *
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.form.autofill
+ * @since       3.0
+ */
+
+class plgFabrik_FormAutofill extends plgFabrik_Form
+{
 
 	/**
-	 * need to do this rather than on onLoad as otherwise in chrome form.js addevents is fired
+	 * Need to do this rather than on onLoad as otherwise in chrome form.js addevents is fired
 	 * before autocomplete class ini'd so then the autocomplete class never sets itself up
-	 * @param	object	$params
-	 * @param	object	$formModel
+	 *
+	 * @param   object  &$params     plugin params
+	 * @param   object  &$formModel  form model
+	 *
+	 * @return  void
 	 */
 
-	function onAfterJSLoad(&$params, &$formModel)
+	public function onAfterJSLoad(&$params, &$formModel)
 	{
-		$opts = new stdClass();
+		$opts = new stdClass;
 		$opts->observe = str_replace('.', '___', $params->get('autofill_field_name'));
 		$opts->trigger = str_replace('.', '___', $params->get('autofill_trigger'));
 		$opts->formid = $formModel->getId();
@@ -52,11 +69,12 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 	}
 
 	/**
-	 * called via ajax to get the first match record
+	 * Called via ajax to get the first match record
+	 *
 	 * @return	string	json object of record data
 	 */
 
-	function onajax_getAutoFill()
+	public function onajax_getAutoFill()
 	{
 		$params = $this->getParams();
 		$cnn = (int) JRequest::getInt('cnn');
@@ -65,7 +83,7 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 		JRequest::setVar('resetfilters', 1);
 		if ($cnn === 0 || $cnn == -1)
 		{
-			//no connection selected so query current forms' table data
+			// No connection selected so query current forms' table data
 			$formid = JRequest::getInt('formid');
 			JRequest::setVar($element, $value, 'get');
 			$model = JModel::getInstance('form', 'FabrikFEModel');
@@ -79,7 +97,7 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 		}
 		if ($value !== '')
 		{
-			// dont get the row if its empty
+			// Don't get the row if its empty
 			$data = $listModel->getRow($value, true, true);
 			if (!is_null($data))
 			{
@@ -88,7 +106,7 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 		}
 		if (empty($data))
 		{
-			echo  "{}";
+			echo "{}";
 		}
 		else
 		{
@@ -96,8 +114,8 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 			$map = json_decode($map);
 			if (!empty($map))
 			{
-				$newdata = new stdClass();
-				foreach($map as $from => $to)
+				$newdata = new stdClass;
+				foreach ($map as $from => $to)
 				{
 					$toraw = $to . '_raw';
 					$fromraw = $from . '_raw';
@@ -121,13 +139,12 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 					else
 					{
 						// $$$ hugh - key may exist, but be null
-						//if (!isset($data->$from)) {
 						if (!array_key_exists($from, $data))
 						{
-							JError::raiseError(500, 'autofill map json not correctly set?');
+							exit;
+							JError::raiseError(500, 'Couln\'t find from value in record data, is the element published?');
 						}
 						$newdata->$to = isset($data->$from) ? $data->$from : '';
-						//if (!isset($data->$fromraw)) {
 						if (!array_key_exists($fromraw, $data))
 						{
 							JError::raiseError(500, 'autofill toraw map json not correctly set?');
@@ -145,4 +162,3 @@ class plgFabrik_FormAutofill extends plgFabrik_Form {
 	}
 
 }
-?>

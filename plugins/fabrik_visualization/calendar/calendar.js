@@ -18,10 +18,12 @@ var fabrikCalendar = new Class({
 			'add': 'index.php?option=com_fabrik&controller=visualization.calendar&view=visualization&task=getEvents&format=raw',
 			'del': 'index.php?option=com_fabrik&controller=visualization.calendar&view=visualization&task=deleteEvent&format=raw'
 		},
-		monthday: {'width': 90, 'height': 80}
+		monthday: {'width': 90, 'height': 80},
+		restFilterStart: 'na'
 	},
 	
 	initialize: function (el) {
+		this.firstRun = true;
 		this.el  = document.id(el);
 		this.SECOND = 1000; // the number of milliseconds in a second
 		this.MINUTE = this.SECOND * 60; // the number of milliseconds in a minute
@@ -122,7 +124,7 @@ var fabrikCalendar = new Class({
 		});
 		eventCont.addEvent('mouseenter', this.doPopupEvent.bindWithEvent(this, [entry, label]));		
 		
-		if (entry.link !== '') {
+		if (entry.link !== '' && this.options.readonly === false) {
 			x = new Element('a', {'href': entry.link, 'class': 'fabrikEditEvent', 
 				'events': {
 				'click': function (e) {
@@ -462,11 +464,12 @@ var fabrikCalendar = new Class({
 		var counterDate = opts.curdate;
 		var entry = new CloneObject(opts.entry, true, ['enddate', 'startdate']);//for day view to avoid dups when scrolling through days //dont clone the date objs for ie
 		var trs = this.el.getElements(opts.divclass + ' tr');
-		var hour = (entry.startdate.isSameDay(counterDate)) ? entry.startdate.getHours() : 0;
+		var hour = (entry.startdate.isSameDay(counterDate)) ? entry.startdate.getHours() - this.options.open : 0;
+		hour = hour < 0 ?  0 : hour;
 		var i = opts.tdOffset;
 		
 		entry.label = entry.label ? entry.label : '';
-		var td = trs[hour + 1].getElements('td')[i + 1];
+		var td = trs[hour + 1].getElements('td')[i + 1]; 
 		var orighours = entry.startdate.getHours();
 	
 		var rowheight = td.getSize().y;
@@ -484,13 +487,13 @@ var fabrikCalendar = new Class({
 		}
 		
 		if (entry.startdate.getDay() !== entry.enddate.getDay()) {
-			duration = 24;
+			duration = this.options.open !== 0 || this.options.close !== 24 ? this.options.close - this.options.open + 1 : 24;
 			if (entry.startdate.isSameDay(counterDate)) {
-				duration = 24 - entry.startdate.getHours();
+				duration = this.options.open !== 0 || this.options.close !== 24 ? this.options.close - this.options.open + 1 : 24 - entry.startdate.getHours();
 			} else {
 				entry.startdate.setHours(0);
 				if (entry.enddate.isSameDay(counterDate)) {
-					duration = entry.enddate.getHours();
+					duration = this.options.open !== 0 || this.options.close !== 24 ? this.options.close - this.options.open : entry.enddate.getHours();
 				}
 			}
 		}
@@ -792,7 +795,11 @@ var fabrikCalendar = new Class({
 				}
 			}
 			tbody.appendChild(tr);
-			for (var i = 0; i < 24; i++) {
+			
+			this.options.open = this.options.open < 0 ?  0 : this.options.open;
+			(this.options.close > 24 || this.options.close < this.options.open) ? this.options.close = 24 : this.options.close;
+		
+			for (i = this.options.open; i < (this.options.close + 1); i++) {
 				tr = new Element('tr');
 				for (d = 0; d < 2; d++) {
 					if (d === 0) {
@@ -875,20 +882,24 @@ var fabrikCalendar = new Class({
 	},
 	
 	renderWeekView: function () {
-		var i, d, tr, tbody;
+		var i, d, tr, tbody, we;
 		this.popWin.setStyle('opacity', 0);
+		// For some reason, using '===' does not work, so une '==' instead ! 
+		// $$$ rob : Javascript MUST be strongly typed to pass JSLint in our build scripts
+		// As show weekends is a boolean I have specically cased it to such in the php code 
+		we = this.options.showweekends === false ? 6 : 8;
 		this.options.viewType = 'weekView';
 		if (!this.weekView) {
 			tbody = new Element('tbody');
 			tr = new Element('tr');
-			for (d = 0; d < 8; d++) {
+			for (d = 0; d < we; d++) {
 				if (d === 0) {
 					tr.adopt(new Element('td', {'class': 'day'}));
 				} else {
 					tr.adopt(new Element('th', {'class': 'dayHeading',
 					'styles': {
-						'width': '80px',
-						'height': '20px',
+						'width': this.options.weekday.width + 'px',
+						'height': (this.options.weekday.height - 10) + 'px',
 						'text-align': 'center',
 						'color': this.options.headingColor,
 						'background-color': this.options.colors.headingBg
@@ -914,17 +925,20 @@ var fabrikCalendar = new Class({
 			}
 			tbody.appendChild(tr);
 			
-			for (i = 0; i < 24; i++) {
+			this.options.open = this.options.open < 0 ?  0 : this.options.open;
+			(this.options.close > 24 || this.options.close < this.options.open) ? this.options.close = 24 : this.options.close;
+		
+			for (i = this.options.open; i < (this.options.close + 1); i++) {
 				tr = new Element('tr');
-				for (d = 0; d < 8; d++) {
+				for (d = 0; d < we; d++) {
 					if (d === 0) {
 						var hour = (i.length === 1) ? i + '0:00' : i + ':00';
 						tr.adopt(new Element('td', {'class': 'day'}).appendText(hour));
 					} else {
 						tr.adopt(new Element('td', {'class': 'day',
 						'styles': {
-							'width': '90px',
-							'height': '10px',
+							'width': this.options.weekday.width + 'px',
+							'height': this.options.weekday.height + 'px',
 							'background-color': '#F7F7F7',
 							'vertical-align': 'top',
 							'padding': 0,
@@ -979,6 +993,10 @@ var fabrikCalendar = new Class({
 		this.popWin = this._makePopUpWin();
 		var d = this.options.urlfilters;
 		d.visualizationid = this.options.calendarId;
+		if (this.firstRun) {
+			this.firstRun = false;
+			d.resetfilters = this.options.restFilterStart;
+		}
 		this.ajax.updateEvents = new Request({url: this.options.url.add,
 		'data': d,
 		'evalScripts': true,
@@ -1071,27 +1089,8 @@ var fabrikCalendar = new Class({
 		}
 		this.el.getElement('.centerOnToday').addEvent('click', this.centerOnToday.bindWithEvent(this));
 		this.showMonth();
-		this.watchFilters();
-		//clear filter list
 		
 		this.ajax.updateEvents.send();
-	},
-	
-	watchFilters: function () {
-		var c = this.el.getElement('.clearFilters');
-		if (c) {
-			c.addEvent('click', function (e) {
-				e.stop();
-				c.findUp('form').getElements('.fabrik_filter').each(function (f) {
-					if (f.get('tag') === 'select') {
-						f.selectedIndex = 0;
-					} else {
-						f.value = '';
-					}
-				});
-				c.findUp('form').submit();
-			}.bind(this));
-		}
 	},
 	
 	showMessage: function (m) {
