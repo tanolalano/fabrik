@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+	<name>Group Edit Form</name>
+	<fields  addfieldpath="/administrator/components/com_fabrik/models/fields">
+	<fieldset name="details">
+	
+		<field name="id" 
+			type="text" 
+			default="0" 
+			required="true"
+			readonly="true" 
+			class="readonly"
+			label="JGLOBAL_FIELD_ID_LABEL" 	
+			description="JGLOBAL_FIELD_ID_DESC" />
+			
+		<field name="filename" 
+			type="filecontent"
+			size="40"
+			path="logs/dbchangeset/"
+			readonly="true"
+			class="readonly"
+			label="COM_FABRIK_FIELD_FILENAME_LABEL"
+			description="COM_FABRIK_FIELD_FILENAME_DESC"  />
+			
+		<field name="remote_site" 
+			type="text"
+			size="40"
+			readonly="true" 
+			class="readonly"
+			label="COM_FABRIK_FIELD_REMOTE_SITE_LABEL"
+			description="COM_FABRIK_FIELD_REMOTE_SITE_DESC"  />
+		
+		<field name="remote_user"
+			type="test"
+			size="40"
+			readonly="true" 
+			class="readonly"
+			label="COM_FABRIK_FIELD_REMOTE_USER_LABEL" 
+			description="COM_FABRIK_FIELD_REMOTE_USER_DESC" />
+		
+	
+	</fieldset>
+	</fields>
+</form>
