@@ -78,7 +78,6 @@ class FabrikModelSchemaUpdates extends FabModelList
 		{
 			$query->where('(applied IN (0, 1, 2))');
 		}
-		echo $query;
 
 		// Add the list ordering clause.
 		$orderCol = $this->state->get('list.ordering', 'id');
