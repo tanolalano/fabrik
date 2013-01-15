@@ -1,5 +1,7 @@
 <?php
 /**
+ * Plugin element to render internal id
+ *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.internalid
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -14,10 +16,18 @@ defined('_JEXEC') or die();
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.internalid
+ * @since       3.0
  */
 
 class plgFabrik_ElementInternalid extends plgFabrik_Element
 {
+
+	/**
+	 * If the element 'Include in search all' option is set to 'default' then this states if the
+	 * element should be ignored from search all.
+	 * @var bool  True, ignore in extended search all.
+	 */
+	protected $ignoreSearchAllDefault = true;
 
 	/**
 	 * Draws the html form element
@@ -28,36 +38,19 @@ class plgFabrik_ElementInternalid extends plgFabrik_Element
 	 * @return  string	elements html
 	 */
 
-	function render($data, $repeatCounter = 0)
+	public function render($data, $repeatCounter = 0)
 	{
 		$name = $this->getHTMLName($repeatCounter);
 		$id = $this->getHTMLId($repeatCounter);
 		$params = $this->getParams();
 		$element = $this->getElement();
 		$value = $this->getValue($data, $repeatCounter);
-		$type = "hidden";
-		if (isset($this->_elementError) && $this->_elementError != '')
+		if (!$this->isEditable())
 		{
-			$type .= " elementErrorHighlight";
-		}
-		if (!$this->_editable)
-		{
-			//as per http://fabrikar.com/forums/showthread.php?t=12867
-			//return "<!--" . stripslashes($value) . "-->";
 			return ($element->hidden == '1') ? "<!-- " . stripslashes($value) . " -->" : stripslashes($value);
 		}
-		$hidden = 'hidden';
-		/* no need to eval here as its done before hand i think ! */
-		if ($element->eval == "1" and !isset($data[$name]))
-		{
-			$str = "<input class=\"inputbox $type\" type=\"$hidden\" name=\"$name\" id=\"$id\" value=\"$value\" />\n";
-		}
-		else
-		{
-			$value = stripslashes($value);
-			$str = "<input class=\"inputbox fabrikinput $type\" type=\"$hidden\" name=\"$name\" id=\"$id\" value=\"$value\" />\n";
-		}
-		return $str;
+		$value = stripslashes($value);
+		return '<input class="inputbox fabrikinput hidden" type="hidden" name="' . $name . '" id="' . $id . '" value="' . $value . '" />';
 	}
 
 	/**
@@ -68,7 +61,7 @@ class plgFabrik_ElementInternalid extends plgFabrik_Element
 
 	public function getFieldDescription()
 	{
-		return "INT(6) NOT NULL AUTO_INCREMENT";
+		return "INT(11) NOT NULL AUTO_INCREMENT";
 	}
 
 	/**
@@ -98,13 +91,9 @@ class plgFabrik_ElementInternalid extends plgFabrik_Element
 		return true;
 	}
 
-	function onLoad()
-	{
-
-	}
-
 	/**
-	 * load a new set of default properites and params for the element
+	 * Load a new set of default properites and params for the element
+	 *
 	 * @return  object	element (id = 0)
 	 */
 
@@ -117,5 +106,5 @@ class plgFabrik_ElementInternalid extends plgFabrik_Element
 		$item->auto_increment = 1;
 		return $item;
 	}
+
 }
-?>

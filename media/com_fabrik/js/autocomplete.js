@@ -27,7 +27,9 @@ var FbAutocomplete = new Class({
 		this.cache = {};
 		this.selected = -1;
 		this.mouseinsde = false;
-		document.addEvent('keydown', this.doWatchKeys.bindWithEvent(this));
+		document.addEvent('keydown', function (e) {
+			this.doWatchKeys(e);
+		}.bind(this));
 		this.testMenuClose = this.doTestMenuClose.bindWithEvent(this);
 		this.element = typeOf(document.id(element)) === "null" ? document.getElement(element) : document.id(element);
 		this.buildMenu();
@@ -36,8 +38,9 @@ var FbAutocomplete = new Class({
 			return;
 		}
 		this.getInputElement().setProperty('autocomplete', 'off');
-		this.doSearch = this.search.bindWithEvent(this);
-		this.getInputElement().addEvent('keyup', this.doSearch);
+		this.getInputElement().addEvent('keyup', function (e) {
+			this.search(e);
+		}.bind(this));
 		
 	},
 	
@@ -114,6 +117,11 @@ var FbAutocomplete = new Class({
 	},
 	
 	populateMenu: function (data) {
+		// $$$ hugh - added decoding of things like &amp; in the text strings
+		data.map(function (item, index) {
+			item.text = Encoder.htmlDecode(item.text);
+			return item;
+		});
 		this.data = data;
 		var max = this.getListMax();
 		var ul = this.menu.getElement('ul');
@@ -134,13 +142,21 @@ var FbAutocomplete = new Class({
 	},
 	
 	makeSelection: function (e, li) {
-		this.getInputElement().value = li.get('text');
-		this.element.value = li.getProperty('data-value');
-		this.closeMenu();
-		this.fireEvent('selection', [this, this.element.value]);
-		// $$$ hugh - need to fire change event, in case it's something like a join element
-		// with a CDD that watches it.
-		this.element.fireEvent('change', new Event.Mock(this.element, 'change'), 700);
+		// $$$ tom - make sure an item was selected before operating on it.
+		if (typeOf(li) !== 'null') {
+			this.getInputElement().value = li.get('text');
+			this.element.value = li.getProperty('data-value');
+			this.closeMenu();
+			this.fireEvent('selection', [this, this.element.value]);
+			// $$$ hugh - need to fire change event, in case it's something like a join element
+			// with a CDD that watches it.
+			this.element.fireEvent('change', new Event.Mock(this.element, 'change'), 700);
+			// $$$ hugh - fire a Fabrik event, just for good luck.  :)
+			Fabrik.fireEvent('fabrik.autocomplete.selected', [this, this.element.value]);
+		} else {
+			//  $$$ tom - fire a notselected event to let developer take appropriate actions.
+            Fabrik.fireEvent('fabrik.autocomplete.notselected', [this, this.element.value]);
+		}
 	},
 	
 	closeMenu: function () {
@@ -236,17 +252,24 @@ var FbAutocomplete = new Class({
 	
 });
 
-var FbCddAutocomplete = new Class({
+var FabCddAutocomplete = new Class({
 	
 	Extends: FbAutocomplete,
 	
-	search: function () {
+	search: function (e) {
+		var key;
 		var v = this.getInputElement().get('value');
 		if (v === '') {
 			this.element.value = '';
 		}
 		if (v !== this.searchText && v !== '') {
-			var key = document.id(this.options.observerid).get('value') + '.' + v;
+			var observer = document.id(this.options.observerid);
+			if (typeOf(observer) !== 'null') {
+				key = observer.get('value') + '.' + v;
+			} else {
+				this.parent(e);
+				return;
+			}
 			this.positionMenu();
 			if (this.cache[key]) {
 				this.populateMenu(this.cache[key]);

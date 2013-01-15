@@ -23,8 +23,19 @@ require_once COM_FABRIK_FRONTEND . '/models/plugin-form.php';
 class plgFabrik_FormEmail extends plgFabrik_Form
 {
 
+	/**
+	 * Attachement files
+	 *
+	 * @var array
+	 */
 	protected $attachments = array();
 
+	/**
+	 * Posted form keys that we don't want to include in the message
+	 * This is basically the fileupload elements
+	 *
+	 * @var array
+	 */
 	protected $dontEmailKeys = null;
 
 	/**
@@ -51,6 +62,8 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 
 	public function onAfterProcess($params, &$formModel)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		jimport('joomla.mail.helper');
 		$user = JFactory::getUser();
 		$config = JFactory::getConfig();
@@ -64,7 +77,7 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 		/* $$$ hugh - moved this to here from above the previous line, 'cos it needs $this->data
 		 * check if condition exists and is met
 		 */
-		if (!$this->shouldProcess('email_conditon'))
+		if (!$this->shouldProcess('email_conditon', null, $formModel))
 		{
 			return;
 		}
@@ -76,7 +89,7 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 
 		if (JFile::exists($emailTemplate))
 		{
-			$message = JFile::getExt($emailTemplate) == 'php' ? $this->_getPHPTemplateEmail($emailTemplate) : $this
+			$message = JFile::getExt($emailTemplate) == 'php' ? $this->_getPHPTemplateEmail($emailTemplate, $formModel) : $this
 				->_getTemplateEmail($emailTemplate);
 
 			// $$$ hugh - added ability for PHP template to return false to abort, same as if 'condition' was was false
@@ -99,9 +112,9 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 		// $$$ hugh - test stripslashes(), should be safe enough.
 		$message = stripslashes($message);
 
-		$editURL = COM_FABRIK_LIVESITE . 'index.php?option=com_fabrik&amp;view=form&amp;fabrik=' . $formModel->get('id') . '&amp;rowid='
+		$editURL = COM_FABRIK_LIVESITE . 'index.php?option=com_' . $package . '&amp;view=form&amp;fabrik=' . $formModel->get('id') . '&amp;rowid='
 			. JRequest::getVar('rowid');
-		$viewURL = COM_FABRIK_LIVESITE . 'index.php?option=com_fabrik&amp;view=details&amp;fabrik=' . $formModel->get('id') . '&amp;rowid='
+		$viewURL = COM_FABRIK_LIVESITE . 'index.php?option=com_' . $package . '&amp;view=details&amp;fabrik=' . $formModel->get('id') . '&amp;rowid='
 			. JRequest::getVar('rowid');
 		$editlink = '<a href="' . $editURL . '">' . JText::_('EDIT') . '</a>';
 		$viewlink = '<a href="' . $viewURL . '">' . JText::_('VIEW') . '</a>';
@@ -156,10 +169,10 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 			$email_to = array_merge($email_to, $email_to_eval);
 		}
 
-		@list($email_from, $email_from_name) = split(":", $w->parseMessageForPlaceholder($params->get('email_from'), $this->data, false));
+		@list($email_from, $email_from_name) = explode(":", $w->parseMessageForPlaceholder($params->get('email_from'), $this->data, false), 2);
 		if (empty($email_from))
 		{
-			$email_from = $config->getvalue('mailfrom');
+			$email_from = $config->get('mailfrom');
 		}
 		if (empty($email_from_name))
 		{
@@ -175,27 +188,41 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 		$attach_type = $params->get('email_attach_type', '');
 		$config = JFactory::getConfig();
 		$attach_fname = $config->get('tmp_path') . '/' . uniqid() . '.' . $attach_type;
-		/* Send email*/
 
+		$query = $db->getQuery(true);
+		$email_to = array_map('trim', $email_to);
+
+		// Add any assigned groups to the to list
+		$sendTo = (array) $params->get('to_group');
+		$groupEmails = (array) $this->getUsersInGroups($sendTo, $field = 'email');
+		$email_to = array_merge($email_to, $groupEmails);
+		$email_to = array_unique($email_to);
+
+		// Remove blank email addresses
+		$email_to = array_filter($email_to);
+		$dbEmailTo = array_map(array($db, 'quote'), $email_to);
+
+		// Get an array of user ids from the email to array
+		if (!empty($dbEmailTo))
+		{
+			$query->select('id, email')->from('#__users')->where('email IN (' . implode(',', $dbEmailTo) . ')');
+			$db->setQuery($query);
+			$userids = $db->loadObjectList('email');
+		}
+		else
+		{
+			$userids = array();
+		}
+
+		// Send email
 		foreach ($email_to as $email)
 		{
-			$email = trim($email);
-			if (empty($email))
-			{
-				continue;
-			}
 			if (FabrikWorker::isEmail($email))
 			{
 				$thisAttachments = $this->attachments;
 				$this->data['emailto'] = $email;
 
-				// See if we can load a user for the email
-				$query = $db->getQuery(true);
-
-				// @TODO move htis out of foreach loop - to reduce queries
-				$query->select('id')->from('#__users')->where('email = ' . $db->quote($email));
-				$db->setQuery($query);
-				$userid = $db->loadResult();
+				$userid = array_key_exists($email, $userids) ? $userids[$email]->id : 0;
 				$thisUser = JFactory::getUser($userid);
 
 				$thisMessage = $w->parseMessageForPlaceholder($message, $this->data, true, false, $thisUser);
@@ -214,6 +241,15 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 				// Get a JMail instance (have to get a new instnace otherwise the receipients are appended to previously added recipients)
 				$mail = JFactory::getMailer();
 				$res = $mail->sendMail($email_from, $email_from_name, $email, $thisSubject, $thisMessage, $htmlEmail, $cc, $bcc, $thisAttachments);
+
+				/*
+				 * $$$ hugh - added some error reporting, but not sure if 'invalid address' is the appropriate message,
+				 * may need to add a generic "there was an error sending the email" message
+				 */
+				if ($res !== true)
+				{
+					JError::raiseNotice(500, JText::sprintf('PLG_FORM_EMAIL_DID_NOT_SEND_EMAIL_INVALID_ADDRESS', $email));
+				}
 				if (JFile::exists($attach_fname))
 				{
 					JFile::delete($attach_fname);
@@ -230,12 +266,13 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 	/**
 	 * Use a php template for advanced email templates, partularly for forms with repeat group data
 	 *
-	 * @param   string  $tmpl  path to template
+	 * @param   string  $tmpl       path to template
+	 * @param   object  $formModel  form model for this plugin
 	 *
 	 * @return string email message
 	 */
 
-	protected function _getPHPTemplateEmail($tmpl)
+	protected function _getPHPTemplateEmail($tmpl, $formModel)
 	{
 		$emailData = $this->data;
 
@@ -401,7 +438,7 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 				if (!in_array($key, $ignore))
 				{
 					$val = '';
-					if (is_array($data[$key]))
+					if (is_array(JArrayHelper::getValue($data, $key)))
 					{
 						// Repeat group data
 						foreach ($data[$key] as $k => $v)
@@ -415,7 +452,7 @@ class plgFabrik_FormEmail extends plgFabrik_Form
 					}
 					else
 					{
-						$val = $data[$key];
+						$val = JArrayHelper::getValue($data, $key);
 					}
 					$val = FabrikString::rtrimword($val, "<br />");
 					$val = stripslashes($val);

@@ -1,9 +1,9 @@
 <?php
 /**
- * @package		Joomla.Plugin
- * @subpackage	Fabrik.form.comment
- * @copyright	Copyright (C) 2005 Fabrik. All rights reserved.
- * @license		GNU General Public License version 2 or later; see LICENSE.txt
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.form.comment
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 // Check to ensure this file is included in Joomla!
@@ -13,6 +13,31 @@ defined('_JEXEC') or die();
 require_once COM_FABRIK_FRONTEND . '/models/plugin-form.php';
 
 /**
+ * Comment J Table
+ *
+ * @package     Joomla
+ * @subpackage  Fabrik
+ * @since       3.0
+ */
+
+class FabrikTableComment extends FabTable
+{
+
+	/**
+	 * Object constructor to set table and key fields.
+	 *
+	 * @param   JDatabase  &$db  JDatabase connector object.
+	 *
+	 */
+
+	public function __construct(&$db)
+	{
+		parent::__construct('#__{package}_comments', 'id', $db);
+	}
+
+}
+
+/**
  * Insert a comment plugin into the bottom of the form
  * Various different plugin systems supported
  *  * Internal
@@ -20,28 +45,21 @@ require_once COM_FABRIK_FRONTEND . '/models/plugin-form.php';
  *  * Intensedebate
  *  * JComments
  *
- * @package		Joomla.Plugin
- * @subpackage	Fabrik.form.comment
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.form.comment
+ * @since       3.0
  */
-
-class FabrikTableComment extends FabTable
-{
-
-	function __construct(&$_db)
-	{
-		parent::__construct('#__{package}_comments', 'id', $_db);
-	}
-
-}
 
 class plgFabrik_FormComment extends plgFabrik_Form
 {
 
 	/**@var string html comment form */
-	var $commentform = null;
+	protected $commentform = null;
 
-	var $commentsLocked = null;
+	/** @var bool comments locked */
+	protected $commentsLocked = null;
 
+	/** @var  array  data */
 	protected $_data = array();
 
 	/**
@@ -110,9 +128,6 @@ class plgFabrik_FormComment extends plgFabrik_Form
 				break;
 			case 'intensedebate':
 				$this->_intensedebate($params);
-				break;
-			case 'jskit':
-				$this->_jskit($params);
 				break;
 			case 'internal':
 				$this->_internal($params, $formModel);
@@ -506,7 +521,7 @@ class plgFabrik_FormComment extends plgFabrik_Form
 		if ($this->doDigg())
 		{
 			$digg = $this->getDigg();
-			$digg->_editable = true;
+			$digg->setEditable(true);
 			$digg->commentDigg = true;
 			$digg->commentId = $comment->id;
 			if (JRequest::getVar('listid') == '')
@@ -654,8 +669,21 @@ class plgFabrik_FormComment extends plgFabrik_Form
 		$res = $row->store();
 		if ($res === false)
 		{
-			echo $row->getError();
-			exit;
+			// Attempt to create the db table?
+			$sql = JFile::read(COM_FABRIK_BASE . '/plugins/fabrik_form/comment/sql/install.mysql.uft8.sql');
+			$db->setQuery($sql);
+			if (!$db->query())
+			{
+				JError::raiseError(500, $db->getErrorMsg());
+				exit;
+			}
+			$res = $row->store();
+			if ($res === false)
+			{
+				JError::raiseError(500, $row->getError());
+				exit;
+			}
+
 		}
 		$obj = new stdClass;
 
@@ -852,21 +880,6 @@ class plgFabrik_FormComment extends plgFabrik_Form
 		$c = FabTable::getInstance('Comment', 'FabrikTable');
 		$c->load($commentid);
 		echo "<a href=\"mailto:$c->email\">$c->email</a>";
-	}
-
-	/**
-	 * Prepare jskit comment system - doesn't require a jskit acount
-	 *
-	 * @param   object  $params  plugin params
-	 *
-	 * @return  void
-	 */
-
-	protected function _jskit($params)
-	{
-		$this->_data = '
- 		<div class="js-kit-comments" permalink=""></div>
-<script src="http://js-kit.com/comments.js"></script>';
 	}
 
 	/**

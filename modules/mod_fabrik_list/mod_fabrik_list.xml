@@ -1,17 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
-<extension
-	type="module"
-	version="2.5"
-	client="site"
-	method="upgrade">
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<extension client="site" method="upgrade" type="module" version="2.5">
 	<name>mod_fabrik_list</name>
 	<author>Rob Clayburn</author>
-	<creationDate>{createdate}</creationDate>
-	<copyright>(C) 2005-{year} Pollen 8 Design Ltd. All rights reserved.</copyright>
+	<creationDate>${createdate}</creationDate>
+	<copyright>(C) 2005-${year} fabrikar.com</copyright>
 	<license>http://www.gnu.org/copyleft/gpl.html GNU/GPL</license>
 	<authorEmail>rob@pollen-8.co.uk</authorEmail>
 	<authorUrl>www.fabrikar.com</authorUrl>
-	<version>3.0.6</version>
+	<version>3.0.7</version>
 	<description>MOD_FABRIK_LIST_XML_DESCRIPTION</description>
 	<files>
 		<filename module="mod_fabrik_list">mod_fabrik_list.php</filename>
@@ -22,129 +18,101 @@
 	</files>
 	<config>
 		<fields name="params">
-			<fieldset name="advanced" addfieldpath="/administrator/components/com_fabrik/models/fields">
-				<field name="moduleclass_sfx" 
-					type="text"
-					label="MOD_FABRIK_LIST_CLASS_SUFFIX_LABEL"
-					description="MOD_FABRIK_LIST_CLASS_SUFFIX_DESC" />
+			<fieldset addfieldpath="/administrator/components/com_fabrik/models/fields" name="advanced">
+				<field description="MOD_FABRIK_LIST_CLASS_SUFFIX_DESC" label="MOD_FABRIK_LIST_CLASS_SUFFIX_LABEL" name="moduleclass_sfx" type="text"/>
 					
-				<field name="@spacer" type="spacer" label="" description="" />
+				<field description="" label="" name="@spacer" type="spacer"/>
 				
-				<field name="list_id" 
-					type="fabriktables" 
-					label="MOD_FABRIK_LIST_LIST_LABEL" 
-					description="MOD_FABRIK_LIST_LIST_DESC" />
+				<field description="MOD_FABRIK_LIST_LIST_DESC" label="MOD_FABRIK_LIST_LIST_LABEL" name="list_id" type="fabriktables"/>
 				
-				<field name="useajax" 
-					type="radio" default="0" 
-					label="MOD_FABRIK_LIST_AJAX_LABEL"
-					description="MOD_FABRIK_LIST_AJAX_DESC">
+				<field default="0" description="MOD_FABRIK_LIST_AJAX_DESC" label="MOD_FABRIK_LIST_AJAX_LABEL" name="useajax" type="radio">
 						<option value="0">JNO</option>
 						<option value="1">JYES</option>
 				</field>
 				
-				<field name="ajax_links" 
-					type="list" default="" 
-					label="MOD_FABRIK_LIST_AJAX_LINKS_LABEL"
-					description="MOD_FABRIK_LIST_AJAX_LINKS_DESC">
+				<field default="" description="MOD_FABRIK_LIST_AJAX_LINKS_DESC" label="MOD_FABRIK_LIST_AJAX_LINKS_LABEL" name="ajax_links" type="list">
 						<option value="">JGLOBAL_USE_GLOBAL</option>
 						<option value="0">JNO</option>
 						<option value="1">JYES</option>
 				</field>
 				
-				<field name="radomizerecords" 
-					type="radio" default="0" 
-					label="MOD_FABRIK_LIST_RANDOMIZE_LABEL">
+				<field default="0" label="MOD_FABRIK_LIST_RANDOMIZE_LABEL" name="radomizerecords" type="radio">
 					description="MOD_FABRIK_LIST_RANDOMIZE_DESC"
 						<option value="0">JNo</option>
 						<option value="1">JYES</option>
 				</field>
 				
-				<field name="limit" 
-					type="text" size="4" default="0" 
-					label="MOD_FABRIK_LIST_LIMIT_LABEL" 
-					description="MOD_FABRIK_LIST_LIMIT_DESC" />
+				<field default="0" description="MOD_FABRIK_LIST_LIMIT_DESC" label="MOD_FABRIK_LIST_LIMIT_LABEL" name="limit" size="4" type="text"/>
 					
-				<field name="show_nav" 
-					type="list" 
-					default="" 
-					label="MOD_FABRIK_LIST_SHOW_LIST_NAV_LABEL" 
-					description="MOD_FABRIK_LIST_SHOW_LIST_NAV_DESC">
+				<field default="" description="MOD_FABRIK_LIST_SHOW_LIST_NAV_DESC" label="MOD_FABRIK_LIST_SHOW_LIST_NAV_LABEL" name="show_nav" type="list">
 						<option value="">JGLOBAL_USE_GLOBAL</option>
 						<option value="0">JNO</option>
 						<option value="1">JYES</option>
 				</field>
 					
-				<field name="fabriklayout" 
-					type="folderlist" 
-					directory="/components/com_fabrik/views/list/tmpl/" 
-					default="default" 
-					label="MOD_FABRIK_LIST_TEMPLATE_LABEL" 
-					descrption="MOD_FABRIK_LIST_TEMPLATE_DESC" />
+				<field default="default" descrption="MOD_FABRIK_LIST_TEMPLATE_DESC" directory="/components/com_fabrik/views/list/tmpl/" label="MOD_FABRIK_LIST_TEMPLATE_LABEL" name="fabriklayout" type="folderlist"/>
 				
-				<field name="show-title" 
-					type="list" default="" 
-					label="MOD_FABRIK_LIST_SHOW_TITLE_LABEL" 
-					description="MOD_FABRIK_LIST_SHOW_TITLE_DESC">
+				<field default="" description="MOD_FABRIK_LIST_SHOW_TITLE_DESC" label="MOD_FABRIK_LIST_SHOW_TITLE_LABEL" name="show-title" type="list">
 						<option value="">JGLOBAL_USE_GLOBAL</option>
 						<option value="0">JNO</option>
 						<option value="1">JYES</option>
 				</field>
 					
-				<field name="list_elements" 
-					type="fabrikmodalrepeat" 
-					label="MOD_FABRIK_LIST_ELEMENTS_LABEL"
-					description="MOD_FABRIK_LIST_ELEMENTS_DESC">
+				<field description="MOD_FABRIK_LIST_ELEMENTS_DESC" label="MOD_FABRIK_LIST_ELEMENTS_LABEL" name="list_elements" type="fabrikmodalrepeat">
 				
 					<fields name="params">
-						<fieldset name="list_elements_modal" repeat="true">
-							<field name="show_in_list" 
-								size="30"
-								type="listfields"
-								label="MOD_FABRIK_LIST_ELEMENTS_HEADING"/>
+						<fieldset modal="true" name="list_elements_modal" repeat="true">
+							<field label="MOD_FABRIK_LIST_ELEMENTS_HEADING" name="show_in_list" size="30" type="listfields"/>
 						
 						</fieldset>
 					</fields>
 				</field>
 				
-				<field name="ordering" 
-					type="fabrikmodalrepeat" 
-					label="MOD_FABRIK_LIST_ORDERING_LABEL"
-					description="MOD_FABRIK_LIST_ORDERING_DESC">
+				<field description="MOD_FABRIK_LIST_ORDERING_DESC" label="MOD_FABRIK_LIST_ORDERING_LABEL" name="ordering" type="fabrikmodalrepeat">
 				
 					<fields name="params">
-						<fieldset name="ordering_modal" repeat="true">
-							<field name="order_by" 
-								size="30"
+						<fieldset modal="true" name="ordering_modal" repeat="true">
+						
+							<field name="order_by"
 								type="listfields"
-								valueformat="tableelement"
-								label="MOD_FABRIK_LIST_ELEMENTS_HEADING"/>
+								label="MOD_FABRIK_LIST_ELEMENTS_HEADING"
+								valueformat="id"/>
 						
 							<field name="order_dir"
-								label="MOD_FABRIK_LIST_ORDER_DIR_LABEL"
-								type="list">
+								type="list"
+								label="MOD_FABRIK_LIST_ORDER_DIR_LABEL">
 									<option value="ASC">MOD_FABRIK_LIST_ASCENDING</option>
 									<option value="DESC">MOD_FABRIK_LIST_DECENDING</option>
 							</field>
+							
 						</fieldset>
 					</fields>
 				</field>
 				
-				<field name="prefilters" 
-					type="fabrikmodalrepeat" 
+				<field name="prefilters"
+					class="modal-prefilter" 
+					description="MOD_FABRIK_LIST_PREFILTERS_DESC"
 					label="MOD_FABRIK_LIST_PREFILTERS_LABEL"
-					description="MOD_FABRIK_LIST_PREFILTERS_DESC">
+					type="fabrikmodalrepeat">
 				
 					<fields name="params">
-						<fieldset name="prefilters_modal" repeat="true">
-							<field name="filter-fields" 
+						<fieldset modal="true" name="prefilters_modal" repeat="true">
+							
+							<field name="filter-join"
+								type="list"
+								default="OR"
+								label="">
+									<option value="AND">AND</option>
+									<option value="OR">OR</option>
+							</field>
+							
+							<field name="filter-fields"
 								type="listfields"
+								raw="true"
 								valueformat="tableelement"
-								label="MOD_FABRIK_LIST_ELEMENTS_HEADING"/>
+								label="MOD_FABRIK_LIST_ELEMENTS_HEADING" />
 						
-							<field name="filter-conditions"
-								label="MOD_FABRIK_LIST_CONDITION_LABEL"
-								type="list">
+							<field label="MOD_FABRIK_LIST_CONDITION_LABEL" name="filter-conditions" type="list">
 									<option value="equals">EQUALS</option>
 									<option value="notequals">NOT EQUAL TO</option>
 									<option value="begins">BEGINS WITH</option>
@@ -159,24 +127,24 @@
 									<option value="not_in">NOT IN</option>
 									<option value="earlierthisyear">MOD_FABRIK_LIST_EARLIER_THIS_YEAR</option>
 									<option value="laterthisyear">MOD_FABRIK_LIST_LATER_THIS_YEAR</option>
+									<option value="yesterday">COM_FABRIK_YESTERDAY</option>
+									<option value="today">COM_FABRIK_TODAY</option>
+									<option value="tomorrow">COM_FABRIK_TOMORROW</option>
+									<opton value="thismonth">COM_FABRIK_THIS_MONTH</opton>
+									<option value="lastmonth">COM_FABRIK_LAST_MONTH</option>
+									<option value="nextmonth">COM_FABRIK_NEXT_MONTH</option>
 							</field>
 							
-							<field name="filter-value" 
-								type="field"
-								label="MOD_FABRIK_LIST_FILTER_VALUE_HEADING"/>
+							<field label="MOD_FABRIK_LIST_FILTER_VALUE_HEADING" name="filter-value" type="field"/>
 								
-							<field name="filter-eval"
-								type="list"
-								label="MOD_FABRIK_LIST_TYPE">
+							<field label="MOD_FABRIK_LIST_TYPE" name="filter-eval" type="list">
 									<option value="0">MOD_FABRIK_LIST_TEXT</option>
 									<option value="1">MOD_FABRIK_LIST_EVAL</option>
 									<option value="2">MOD_FABRIK_LIST_QUERY</option>
 									<option value="3">MOD_FABRIK_LIST_NO_QUOTES</option>
 							</field>
 							
-							<field name="filter-access" 
-								type="accesslevel"
-								label="MOD_FABRIK_LIST_FILTER_ACCESS_HEADING"/>
+							<field label="MOD_FABRIK_LIST_FILTER_ACCESS_HEADING" name="filter-access" type="accesslevel"/>
 								
 						</fieldset>
 					</fields>

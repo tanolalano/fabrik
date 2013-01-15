@@ -1,5 +1,7 @@
 <?php
 /**
+ * Renders a repeating drop down list of forms
+ *
  * @package     Joomla
  * @subpackage  Form
  * @copyright   Copyright (C) 2005 Rob Clayburn. All rights reserved.
@@ -31,16 +33,27 @@ JFormHelper::loadFieldClass('list');
 class JFormFieldFormList extends JFormFieldList
 {
 	/**
-	* Element name
-	*
-	* @access	protected
-	* @var		string
-	*/
-	var	$_name = 'Formlist';
+	 * Element name
+	 *
+	 * @access	protected
+	 * @var		string
+	 */
+	var $_name = 'Formlist';
 
-	function getOptions()
+	/**
+	 * Get list options
+	 *
+	 * @return  array
+	 */
+
+	protected function getOptions()
 	{
-		$db	= FabrikWorker::getDbo(true);
+		$app = JFactory::getApplication();
+		if ($this->element['package'])
+		{
+			$package = $app->setUserState('com_fabrik.package', $this->element['package']);
+		}
+		$db = FabrikWorker::getDbo(true);
 		$query = $db->getQuery(true);
 		$query->select('id AS value, label AS ' . $db->quote('text') . ', published');
 		$query->from('#__{package}_forms');
@@ -72,6 +85,12 @@ class JFormFieldFormList extends JFormFieldList
 		return $rows;
 	}
 
+	/**
+	 * Method to get the field input markup.
+	 *
+	 * @return	string	The field input markup.
+	 */
+
 	protected function getInput()
 	{
 		$option = JRequest::getCmd('option');
@@ -79,9 +98,7 @@ class JFormFieldFormList extends JFormFieldList
 		{
 			$db = FabrikWorker::getDbo(true);
 			$query = $db->getQuery(true);
-			$query->select('form_id')
-			->from('#__{package}_formgroup')
-			->where('group_id = ' . (int) $this->form->getValue('id'));
+			$query->select('form_id')->from('#__{package}_formgroup')->where('group_id = ' . (int) $this->form->getValue('id'));
 			$db->setQuery($query);
 			$this->value = $db->loadResult();
 			$this->form->setValue('form', null, $this->value);

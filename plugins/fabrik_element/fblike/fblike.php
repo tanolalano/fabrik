@@ -1,5 +1,7 @@
 <?php
 /**
+ * Plugin element to render facebook open graph like button
+ *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.facebooklike
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -18,16 +20,40 @@ require_once JPATH_SITE . '/components/com_fabrik/models/element.php';
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.facebooklike
+ * @since       3.0
  */
 
 class plgFabrik_ElementFblike extends plgFabrik_Element
 {
 
-	var $hasLabel = false;
+	/**
+	 * Does the element have a label
+	 *
+	 * @var bool
+	 */
+	protected $hasLabel = false;
 
+	/**
+	 * Db table field type
+	 *
+	 * @var  string
+	 */
 	protected $fieldDesc = 'INT(%s)';
 
-	protected $fieldSize = '1';
+	/**
+	 * Db table field size
+	 *
+	 * @var  string
+	 */
+	protected $fieldLength = '1';
+
+	/**
+	 * If the list view cant see details records we can't render the plugin
+	 * use this var to set single notice
+	 *
+	 * @var  bool
+	 */
+	protected static $warned = false;
 
 	/**
 	 * Shows the data formatted for the list view
@@ -44,15 +70,28 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 		$meta = array();
 		$config = JFactory::getConfig();
 		$ex = $_SERVER['SERVER_PORT'] == 80 ? 'http://' : 'https://';
+
 		// $$$ rob no need to get other meta data as we are linking to the details which contains full meta info on what it is
 		// you are liking
 		$meta['og:url'] = $ex . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
-		$meta['og:site_name'] = $config->getValue('sitename');
+		$meta['og:site_name'] = $config->get('sitename');
 		$meta['fb:admins'] = $params->get('fblike_opengraph_applicationid');
 		$str = FabrikHelperHTML::facebookGraphAPI($params->get('opengraph_applicationid'), $params->get('fblike_locale', 'en_US'), $meta);
-		// in list view we link to the detailed record not the list view itself
+
+		// In list view we link to the detailed record not the list view itself
 		// means form or details view must be viewable by the user
 		$url = $this->getListModel()->linkHref($this, $thisRow);
+		if ($url === '')
+		{
+			if (!self::$warned)
+			{
+				JError::raiseNotice(500, 'Your list needs to have viewable details records for the FB Like button to work');
+				self::$warned = true;
+			}
+
+			return '';
+		}
+
 		return $str . $this->_render($url);
 		return parent::renderListData($data, $thisRow);
 	}
@@ -66,7 +105,7 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 	 * @return  string	elements html
 	 */
 
-	function render($data, $repeatCounter = 0)
+	public function render($data, $repeatCounter = 0)
 	{
 		$params = $this->getParams();
 		$meta = array();
@@ -99,7 +138,6 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 				}
 			}
 		}
-
 		$locEl = $formModel->getElement($params->get('fblike_location'), true);
 		if ($locEl != '')
 		{
@@ -113,15 +151,24 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 			}
 		}
 		$meta['og:url'] = $ex . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
-		$meta['og:site_name'] = $config->getValue('sitename');
+		$meta['og:site_name'] = $config->get('sitename');
 		$meta['fb:app_id'] = $params->get('fblike_opengraph_applicationid');
 		$str = FabrikHelperHTML::facebookGraphAPI($params->get('fblike_opengraph_applicationid'), $params->get('fblike_locale', 'en_US'), $meta);
 		$url = $params->get('fblike_url');
-		//$$$tom placeholder option for URL params
+
+		// $$$tom placeholder option for URL params
 		$w = new FabrikWorker;
 		$url = $w->parseMessageForPlaceHolder($url, $data);
 		return $str . $this->_render($url);
 	}
+
+	/**
+	 * Render the button
+	 *
+	 * @param   string  $url  button url
+	 *
+	 * @return string
+	 */
 
 	protected function _render($url)
 	{
@@ -131,7 +178,7 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 			if (!strstr($url, COM_FABRIK_LIVESITE))
 			{
 				// $$$ rob doesnt work with sef urls as $url already contains site folder.
-				//$url = COM_FABRIK_LIVESITE.$url;
+				// $url = COM_FABRIK_LIVESITE.$url;
 				$ex = $_SERVER['SERVER_PORT'] == 80 ? 'http://' : 'https://';
 				$url = $ex . $_SERVER['SERVER_NAME'] . $url;
 			}
@@ -141,14 +188,14 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 		{
 			$href = '';
 		}
-
 		$layout = $params->get('fblike_layout', 'standard');
 		$showfaces = $params->get('fblike_showfaces', 0) == 1 ? 'true' : 'false';
 		$width = $params->get('fblike_width', 300);
 		$action = $params->get('fblike_action', 'like');
 		$font = $params->get('fblike_font', 'arial');
 		$colorscheme = $params->get('fblike_colorscheme', 'light');
-		$str = "<fb:like $href layout=\"$layout\" show_faces=\"$showfaces\" width=\"$width\" action=\"$action\" font=\"$font\" colorscheme=\"$colorscheme\" />";
+		$str = '<fb:like ' . $href . 'layout="' . $layout . '" show_faces="' . $showfaces . '" width="' . $width . '" action="' . $action
+			. '" font="' . $font . '" colorscheme="' . $colorscheme . '" />';
 		return $str;
 	}
 
@@ -169,4 +216,3 @@ class plgFabrik_ElementFblike extends plgFabrik_Element
 	}
 
 }
-?>

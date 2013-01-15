@@ -21,7 +21,7 @@
 			
 		<field name="intro" 
 			type="editor"
-			filter="FabrikHelper::filterText"
+			filter="FabrikAdminHelper::filterText"
 			rows="3" 
 			cols="6" 
 			label="COM_FABRIK_FIELD_INTRODUCTION_LABEL"
@@ -81,6 +81,18 @@
 	</fieldset>
 	
 	<fields name="params">
+		
+		<fieldset name="details2">
+		
+			<field name="outro" 
+				type="editor"
+				filter="FabrikAdminHelper::filterText"
+				rows="3" 
+				cols="6" 
+				label="COM_FABRIK_FIELD_OUTRO_LABEL"
+				description="COM_FABRIK_FIELD_OUTRO_DESC" />
+				
+		</fieldset>
 		<fieldset name="buttons">
 		
 			<field name="reset_button" 
@@ -288,8 +300,8 @@
 			<field name="tiplocation"
 				type="list"
 				default="tip"
-				label="COM_FABRIK_FIELD_TIP_LOCATION_LABEL"
-				description="COM_FABRIK_FIELD_TIP_LOCATION_DESC">
+				label="COM_FABRIK_FIELD_FORM_TIP_LOCATION_LABEL"
+				description="COM_FABRIK_FIELD_FORM_TIP_LOCATION_DESC">
 					<option value="tip">COM_FABRIK_TIP</option>
 					<option value="above">COM_FABRIK_TIP_ABOVE</option>
 					<option value="below">COM_FABRIK_TIP_BELOW</option>
@@ -336,12 +348,14 @@
 				description="COM_FABRIK_FIELD_SUBMIT_SUCCESS_MSG_DESC" />
 				
 			<field name="suppress_msgs"
-				type="radio" 
+				type="list" 
 				default="0" 
 				label="COM_FABRIK_FIELD_SUPPRESS_MSGS_LABEL" 
 				description="COM_FABRIK_FIELD_SUPPRESS_MSGS_DESC">
 					<option value="0">JNO</option>
-					<option value="1">JYES</option>
+					<option value="1">COM_FABRIK_SUPPRESS_SUCCESS_MSGS</option>
+					<option value="2">COM_FABRIK_SUPPRESS_ACL_MSGS</option>
+					<option value="3">COM_FABRIK_SUPPRESS_ALL_MSGS</option>
 			</field>				
 				
 			<field name="spoof_check" 

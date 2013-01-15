@@ -1,13 +1,15 @@
 <?php
-/*
- * @package Joomla.Administrator
- * @subpackage Fabrik
- * @since		1.6
- * @copyright Copyright (C) 2005 Rob Clayburn. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
-*/
+/**
+ * Admin Form Edit Tmpl
+ *
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @since       3.0
+ */
 
-// no direct access
+// No direct access
 defined('_JEXEC') or die;
 
 JHtml::addIncludePath(JPATH_COMPONENT . '/helpers/html');
@@ -24,10 +26,25 @@ $document = JFactory::getDocument();
 $srcs = FabrikHelperHTML::framework();
 $srcs[] = 'administrator/components/com_fabrik/views/namespace.js';
 $srcs[] = 'administrator/components/com_fabrik/views/pluginmanager.js';
-$srcs[] = 'administrator/components/com_fabrik/views/form/tmpl/adminform.js';
 
 FabrikHelperHTML::script($srcs, $this->js);
 ?>
+
+<script type="text/javascript">
+
+	Joomla.submitbutton = function(task) {
+		if (task !== 'form.cancel'  && !controller.canSaveForm()) {
+			alert('Please wait - still loading');
+			return false;
+		}
+		if (task == 'form.cancel' || document.formvalidator.isValid(document.id('adminForm'))) {
+
+			Joomla.submitform(task, document.getElementById('adminForm'));
+		} else {
+			alert('<?php echo $this->escape(JText::_('JGLOBAL_VALIDATION_FORM_FAILED'));?>');
+		}
+	}
+</script>
 
 <form action="<?php JRoute::_('index.php?option=com_fabrik'); ?>" method="post" name="adminForm" id="adminForm" class="form-validate">
 	<div class="width-50 fltlft">
@@ -35,6 +52,11 @@ FabrikHelperHTML::script($srcs, $this->js);
 			<legend><?php echo JText::_('COM_FABRIK_DETAILS');?></legend>
 			<ul class="adminformlist">
 				<?php foreach ($this->form->getFieldset('details') as $field) :?>
+				<li>
+					<?php echo $field->label; ?><?php echo $field->input; ?>
+				</li>
+				<?php endforeach; ?>
+				<?php foreach ($this->form->getFieldset('details2') as $field) :?>
 				<li>
 					<?php echo $field->label; ?><?php echo $field->input; ?>
 				</li>
@@ -58,13 +80,22 @@ FabrikHelperHTML::script($srcs, $this->js);
 			<legend><?php echo JText::_('COM_FABRIK_FORM_PROCESSING');?></legend>
 			<ul class="adminformlist">
 				<li>
-					<?php echo $this->form->getLabel('record_in_database') . $this->form->getInput('record_in_database'); ?>
-					<?php if ($this->item->record_in_database != '1') {?>
-						<?php echo $this->form->getLabel('db_table_name') . $this->form->getInput('db_table_name'); ?>
-					<?php } else { ?>
-						<input type="hidden" id="database_name" name="_database_name" value="<?php echo $this->item->db_table_name;?>"  />
+					<?php
+					echo $this->form->getLabel('record_in_database');
+					if ($this->item->id == 0 || $this->item->record_in_database == 1) :
+						echo $this->form->getInput('record_in_database');
+					else :
+					echo '<span style="padding-top:5px;display:inline-block">';
+						echo $this->item->record_in_database == 1 ? JText::_('JYES') : JText::_('JNO');
+						echo '</span>';
+					endif;
+					echo $this->form->getLabel('db_table_name');
+					if ($this->item->record_in_database != '1') :
+						echo $this->form->getInput('db_table_name');
+					else :?>
+						<input class="readonly" readonly="readonly" id="database_name" name="_database_name" value="<?php echo $this->item->db_table_name;?>"  />
 						<input type="hidden" id="_connection_id" name="_connection_id" value="<?php echo $this->item->connection_id;?>"  />
-					<?php }?>
+					<?php endif; ?>
 				</li>
 				<?php foreach ($this->form->getFieldset('processing') as $field) :?>
 				<li>
@@ -87,7 +118,7 @@ FabrikHelperHTML::script($srcs, $this->js);
 	</div>
 
 	<div class="width-50 fltrt">
-		<?php echo JHtml::_('tabs.start','table-tabs-'.$this->item->id, array('useCookie'=>1));
+		<?php echo JHtml::_('tabs.start','table-tabs-'.$this->item->id, array('useCookie' => 1));
 
 		echo JHtml::_('tabs.panel', JText::_('COM_FABRIK_GROUP_LABEL_PUBLISHING_DETAILS'), 'form_publishing');
 		echo $this->loadTemplate('publishing');

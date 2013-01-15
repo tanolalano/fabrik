@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="fabrik3-package" default="fabrik.all">
+
+<!--  fabrik.all -->
 	<property file="build_config.ini" />
 	<property file="build_config_private.ini" />
 	<import file="./build_updateserver_xml.xml"/>
@@ -9,52 +11,133 @@
 	<property name="update_dir" value="${cfg.destdir}/admin/update/fabrik/" />
 	<property name="package_list" value="${update_dir}/package_list.xml" />
 	
+	<property name="plugin.folders" value="cron,element,form,list,validationrule,visualization" />
+	<property name="plugins.cron" value="email,php" />
+	<property name="plugins.element" value="button,calc,captcha,cascadingdropdown,checkbox,databasejoin,date,display,dropdown,field,fileupload,googlemap,image,internalid,ip,link,password,radiobutton,textarea,time,user,usergroup,viewlevel,yesno" />
+	<property name="plugins.form" value="email,juser,php,receipt,redirect" />
+	<property name="plugins.list" value="copy,email,php,update_col" />
+	<property name="plugins.validationrule" value="akismet,areuniquevalues,emailexists,isalphanumeric,isemail,isgreaterorlessthan,isnot,notempty,php,regex,specialchars,userexists" />
+	<property name="plugins.visualization" value="calendar,chart,coverflow,fusion_gantt_chart,fusionchart,googlemap,media,slideshow,timeline" />
+	
+	
 	<taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
 	<taskdef name="xmltask" classname="com.oopsconsultancy.xmltask.ant.XmlTask"/>
 
-
 	<target name="phpcs" description="Ensure Code Style Rules">
-	    <exec executable="cmd">
-	        <arg line="/c ${phpcs.path}
-	            --report=checkstyle
-	            --report-file='${basedir}/fabrik_build/logs/checkstyle.xml'
-	            --standard=Joomla
-	            --ignore=*\\administrator\\components\\*
-	            -p
-	            ${basedir}/components/com_fabrik/" />
-	    </exec>
+		<if>
+			<equals arg1="${cfg.os}" arg2="unix" />
+			<then>
+			    <exec executable="${phpcs.path}">
+			        <arg line="
+			            --report=checkstyle
+			            --report-file='${basedir}/fabrik_build/logs/checkstyle.xml'
+			            --standard=Joomla
+			            --ignore=*/administrator/components/*
+			            -p
+			            ${basedir}/components/com_fabrik/" />
+			    </exec>
+			</then>
+			<else>
+			    <exec executable="cmd">
+			        <arg line="/c ${phpcs.path}
+			            --report=checkstyle
+			            --report-file='${basedir}/fabrik_build/logs/checkstyle.xml'
+			            --standard=Joomla
+			            --ignore=*\\administrator\\components\\*
+			            -p
+			            ${basedir}/components/com_fabrik/" />
+			    </exec>
+		    </else>
+	    </if>
 	</target>
 	
 	<target name="phpdoc" description="Generate API documentation">
-	    <exec executable="cmd">
-	        <arg line="/c ${phpdoc.path}
-	            -d ${basedir}/components/com_fabrik,${basedir}/plugins/fabrik_element,${basedir}/plugins/fabrik_cron,${basedir}/plugins/fabrik_list,${basedir}/plugins/fabrik_form,${basedir}/plugins/fabrik_validationrule,${basedir}/plugins/fabrik_visualization,${basedir}/plugins/content/fabrik,${basedir}/plugins/system/fabrik,${basedir}/plugins/system/fabrikcron,${basedir}/administrator/components/com_fabrik
-	            -i ${basedir}/components/com_fabrik/libs/,*/libs/*
-	            -t ${basedir}/fabrik_build/docs" />
-	    </exec>
-	    <ftp server="${ftp.server}" userid="${ftp.user}" password="${ftp.password}" verbose="yes" remotedir="${ftp.docdir}" retriesAllowed="3" depends="false" skipFailedTransfers="true">
+		<if>
+			<equals arg1="${cfg.os}" arg2="unix" />
+			<then>
+			    <exec executable="${phpdoc.path}">
+			        <arg line="
+			            -d ${basedir}/components/com_fabrik,${basedir}/plugins/fabrik_element,${basedir}/plugins/fabrik_cron,${basedir}/plugins/fabrik_list,${basedir}/plugins/fabrik_form,${basedir}/plugins/fabrik_validationrule,${basedir}/plugins/fabrik_visualization,${basedir}/plugins/content/fabrik,${basedir}/plugins/system/fabrik,${basedir}/plugins/system/fabrikcron,${basedir}/administrator/components/com_fabrik
+			            -i ${basedir}/components/com_fabrik/libs/,*/libs/*
+			            -t ${basedir}/fabrik_build/docs" />
+			    </exec>
+			</then>
+			<else>
+			    <exec executable="cmd">
+			        <arg line="/c ${phpdoc.path}
+			            -d ${basedir}/components/com_fabrik,${basedir}/plugins/fabrik_element,${basedir}/plugins/fabrik_cron,${basedir}/plugins/fabrik_list,${basedir}/plugins/fabrik_form,${basedir}/plugins/fabrik_validationrule,${basedir}/plugins/fabrik_visualization,${basedir}/plugins/content/fabrik,${basedir}/plugins/system/fabrik,${basedir}/plugins/system/fabrikcron,${basedir}/administrator/components/com_fabrik
+			            -i ${basedir}/components/com_fabrik/libs/,*/libs/*
+			            -t ${basedir}/fabrik_build/docs" />
+			    </exec>
+		    </else>
+	    </if>
+	</target>
+	
+	<target name="uploadPhpDoc" description="Upload PHP docs created in target:phpdoc">
+		<ftp passive ="yes" server="${ftp.server}" userid="${ftp.user}" password="${ftp.password}" 
+			depends="false"
+			ignoreNoncriticalErrors="true"
+			retriesAllowed="3"
+			verbose="yes" remotedir="${ftp.docdir}"
+			 skipFailedTransfers="true">
 			<fileset dir="${phpdoc.localdir}">
 				<include name="**/**" />
 			</fileset>
-		</ftp> 
+		</ftp>
 	</target>
 
  
 	<target name="fabrik.all">
-	<input message="PHP Doc?" addproperty="phpdoc" validargs="y,n" defaultvalue="n" />
+		<antcallback target="git.tags.get" return="project.current, git.tags, project.previous"/>
+		<input message="Component version:" addproperty="version" defaultvalue="${project.current}"/>
+		
+		<input message="Deployment to test or live server?" addproperty="deploy.to" validargs="test,live" defaultvalue="test" />
+		
+		<!-- Set up deployment environment -->
+		<if>
+			<equals arg1="${deploy.to}" arg2="test" />
+			<then>
+				<property name="sql.downloads_table" value="${sql.downloads_table.test}" />
+				<property name="ftp.updatedir" value="${ftp.updatedir.test}" />
+				<property name="ftp.update.folder" value="${ftp.update.folder.test}" />
+			</then>
+			<else>
+				<property name="sql.downloads_table" value="${sql.downloads_table.live}" />
+				<property name="ftp.updatedir" value="${ftp.updatedir.live}" />
+				<property name="ftp.update.folder" value="${ftp.update.folder.live}" />
+			</else>
+		</if>
+		<echo>${sql.downloads_table} ${ftp.updatedir} ${ftp.update.folder}</echo>
+		
+		<input message="Create Change log?" addproperty="changelog" validargs="y,n" defaultvalue="n" />
+		<if>
+			<equals arg1="${changelog}" arg2="y" />
+			<then>
+				<antcall target="changelog.update" />		
+			</then>
+		</if>
+	
+		<input message="PHP Doc?" addproperty="phpdoc" validargs="y,n" defaultvalue="n" />
 		<if>
  			<equals arg1="${phpdoc}" arg2="y" />
 			<then>
 			<antcall target="phpdoc" />
 			</then>
 		</if>
-		<input message="PHPCS?" addproperty="phpcs" validargs="y,n" defaultvalue="n" />
+		<input message="Upload PHP docs to fabrikar.com" addproperty="phpdocupload" validargs="y,n" defaultvalue="n" />
+		<if>
+			<equals arg1="${phpdocupload}" arg2="y" />
+			<then>
+				<antcall target="uploadPhpDoc"/>
+			</then>	
+		</if>
+		<!-- <input message="PHPCS?" addproperty="phpcs" validargs="y,n" defaultvalue="n" />
 		<if>
  			<equals arg1="${phpcs}" arg2="y" />
 			<then>
 			<antcall target="phpcs" />
 			</then>
-		</if>
+		</if> -->
 		<input message="JS Lint and compress?" addproperty="jslint.do" validargs="y,n" defaultvalue="y" />
 		
 		<if>
@@ -64,8 +147,7 @@
 			</then>
 		</if>
 		
-		<!-- <input message="Previous version number:" addproperty="lastversion" /> -->
-		<input message="Component version:" addproperty="version" />
+		<input message="Component version:" addproperty="version" defaultvalue="${git.log.range.end}"/>
 		
 		<input message="build zips?" addproperty="zip.do" validargs="y,n" defaultvalue="y" />
 		
@@ -118,7 +200,7 @@
 	<target name="fabrik.zipfabrikpluginfolder.plugin">
 		<xmltask source="${package_list}" dest="${package_list}"> 
 			<insert path="/extensionset"> 
-      <![CDATA[<extension name="${update.product_name} ${folder} - ${plugin}" element="${plugin}" type="plugin" folder="${update.product_code}_${folder}" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/plg_${folder}_${plugin}.xml" />]]>
+      <![CDATA[<extension name="${update.product_name} ${folder} - ${plugin}" element="${plugin}" type="plugin" folder="${update.product_code}_${folder}" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/plg_${folder}_${plugin}.xml" />]]>
    		</insert> 
 		</xmltask>
 		<delete file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_${folder}_${plugin}_${version}.zip" />
@@ -161,7 +243,7 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>
 		]]>
 	   		</insert> 
@@ -184,7 +266,7 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>
 		]]>
 	   		</insert> 
@@ -207,7 +289,7 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>
 		]]>
 	   		</insert> 
@@ -230,7 +312,7 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>
 		]]>
 	   		</insert> 
@@ -239,10 +321,10 @@
 		
 		<xmltask source="${package_list}" dest="${package_list}"> 
 			<insert path="/extensionset">
-				<![CDATA[<extension name="Fabrik" element="fabrik" type="plugin" folder="content" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/plg_fabrik.xml" />
-<extension name="Search - Fabrik" element="fabrik" type="plugin" folder="search" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/plg_search_fabrik.xml" /> 
-<extension name="System - FabrikSheduled Tasks" element="fabrikcron" type="plugin" folder="system" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/plg_system_fabrikcron.xml" />
-<extension name="System - Fabrik" element="fabrik" type="plugin" folder="system" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/plg_system_fabrik.xml" />
+				<![CDATA[<extension name="Fabrik" element="fabrik" type="plugin" folder="content" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/plg_fabrik.xml" />
+<extension name="Search - Fabrik" element="fabrik" type="plugin" folder="search" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/plg_search_fabrik.xml" /> 
+<extension name="System - FabrikSheduled Tasks" element="fabrikcron" type="plugin" folder="system" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/plg_system_fabrikcron.xml" />
+<extension name="System - Fabrik" element="fabrik" type="plugin" folder="system" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/plg_system_fabrik.xml" />
 ]]>
    		</insert> 
 		</xmltask>
@@ -270,7 +352,7 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>]]>
 	   		</insert> 
 		</xmltask>
@@ -292,15 +374,15 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>]]>
 	   		</insert> 
 		</xmltask>
 		
 		<xmltask source="${package_list}" dest="${package_list}"> 
 			<insert path="/extensionset">
-			<![CDATA[<extension name="Fabrik form" element="mod_fabrik_form" type="module" folder="" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/mod_fabrik_form.xml" />]]> 
-     		<![CDATA[<extension name="Fabrik list" element="mod_fabrik_list" type="module" folder="" version="${version}" detailsurl="http://fabrikar.com/update/fabrik/mod_fabrik_list.xml" />]]>
+			<![CDATA[<extension name="Fabrik form" element="mod_fabrik_form" type="module" folder="" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/mod_fabrik_form.xml" />]]> 
+     		<![CDATA[<extension name="Fabrik list" element="mod_fabrik_list" type="module" folder="" version="${version}" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/mod_fabrik_list.xml" />]]>
    		</insert> 
 		</xmltask>
 	</target>
@@ -354,14 +436,14 @@
 			</downloads>
 			<maintainer>${update.maintainer}</maintainer>
 			<maintainerurl>${update.url}</maintainerurl>
-			<targetplatform name="${update.target_platform}" version="${update.target_platform_version}"/>
+			<targetplatform name="${update.target_platform}" version="${jversion}"/>
 		</update>]]>
 	   		</insert> 
 		</xmltask>
 			
 		<xmltask source="${package_list}" dest="${package_list}"> 
 			<insert path="/extensionset"> 
-     		<![CDATA[<extension name="fabrik" element="com_fabrik" type="component" folder="" version="${version}" client="administrator" detailsurl="http://fabrikar.com/update/fabrik/com_fabrik.xml" />]]>
+     		<![CDATA[<extension name="fabrik" element="com_fabrik" type="component" folder="" version="${version}" client="administrator" detailsurl="http://fabrikar.com/update/${ftp.update.folder}/com_fabrik.xml" />]]>
    		</insert> 
 		</xmltask>
 	</target>
@@ -380,38 +462,21 @@
 			
 		</target>
 		
-		<target name="fabrik.plugin.cron.zip.copy">
-	    <copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_cron_${plugin}_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
-	  </target>
-	  
-	  <target name="fabrik.plugin.element.zip.copy">
-	    <copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_element_${plugin}_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
-	  </target>
-	  
-	  <target name="fabrik.plugin.form.zip.copy">
-	  	<copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_form_${plugin}_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
-	  </target>
 		
-		<target name="fabrik.plugin.list.zip.copy">
-			<copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_list_${plugin}_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
-		</target>
-		
-		<target name="fabrik.plugin.validation.zip.copy">
-			<copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_validationrule_${plugin}_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
-		</target>
-		
-		<target name="fabrik.plugin.visualization.zip.copy">
-			<copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_visualization_${plugin}_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
-		</target>
 		<target name="fabrik.package.end">
-			<var name="updatelist" value=""/>
-			<foreach list="email,php" param="plugin" target="fabrik.plugin.cron.zip.copy" inheritall="true" inheritrefs="true"/>
-			<echo>${updatelist}</echo>
-			<foreach list="button,checkbox,databasejoin,date,display,dropdown,field,fileupload,googlemap,image,internalid,link,radiobutton,textarea,user" param="plugin" target="fabrik.plugin.element.zip.copy" inheritall="true" inheritrefs="true"/>
-			<foreach list="email,php,receipt,redirect" target="fabrik.plugin.form.zip.copy" param="plugin" inheritall="true" inheritrefs="true"/>
-			<foreach list="copy,php" target="fabrik.plugin.list.zip.copy" inheritall="true" param="plugin" inheritrefs="true"/>
-			<foreach list="isgreaterorlessthan,notempty,php,regex" target="fabrik.plugin.validation.zip.copy" param="plugin" inheritall="true" inheritrefs="true"/>
-			<foreach list="calendar,chart,googlemap,media,slideshow" target="fabrik.plugin.visualization.zip.copy" param="plugin" inheritall="true" inheritrefs="true"/>
+			<for list="${plugin.folders}" param="plugin.type">
+				<sequential>
+	            	<dirname property="plugins.@{plugin.type}" file="@{plugin.type}"/>
+					<echo>@{plugin.type}</echo>
+					<echo>${plugins.@{plugin.type}}</echo>
+					<for list="${plugins.@{plugin.type}}" param="plugin.name">
+						<sequential>
+							<var name="filename" value="plg_fabrik_@{plugin.type}_@{plugin.name}_${version}.zip" />
+							<copy file="${cfg.destdir}/pkg_fabrik_sink/packages/${filename}" todir="${cfg.destdir}/pkg_fabrik/packages/" />
+						</sequential>
+					</for>
+				</sequential>
+			</for>
 			<copy file="${cfg.destdir}/pkg_fabrik_sink/packages/plg_fabrik_${version}.zip" todir="${cfg.destdir}/pkg_fabrik/packages/" />
 			<zip destfile="${cfg.destdir}/pkg_fabrik_${version}.zip" basedir="${cfg.destdir}/pkg_fabrik"/>
 		</target>
@@ -624,7 +689,7 @@
 	
 	<target name="refresh.updatexml">
 	
-		<tstamp>
+		<!-- <tstamp>
 	      <format property="createdate" pattern="MMMM yyyy" locale="en,UK"/>
 	  </tstamp>
 	  <tstamp>
@@ -638,25 +703,92 @@
 			 <replace path="/extension/version/text()" withText="${version}"/> 
 			 <replace path="/extension/creationDate/text()" withText="${createdate}" />
 			 <replace path="/extension/copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
-		</xmltask>
+		</xmltask> -->
 		
 		<antcall target="xml.update.repoistory" />
 	</target>
 	
 	<target name="xml.update.repoistory">
-		<input message="Update repoistory xml files with version number?" addproperty="repository.xml.update" validargs="y,n" defaultvalue="y" />
+		<input message="Update local repoistory xml files with version number?" addproperty="repository.xml.update" validargs="y,n" defaultvalue="y" />
 			<if>
 	 			<equals arg1="${repository.xml.update}" arg2="y" />
 				<then>
+
+				<input message="Joomla target version:" addproperty="jversion" defaultvalue="2.5"/>
+				
+				<!-- Update version -->
+				<replaceregexp flags="gs">
+					<regexp pattern="\&lt;version\&gt;(.*)\&lt;/version\&gt;"/>
+					<substitution expression="\&lt;version\&gt;${version}\&lt;/version\&gt;"/>
+			  		<fileset dir="${basedir}">
+			  			<include name="**/administrator/components/com_fabrik/*.xml"/>
+						<include name="**/modules/mod_fabrik_list/mod_fabrik_*.xml"/>
+						<include name="**/modules/mod_fabrik*/mod_fabrik_*.xml"/>
+						<include name="**/plugins/fabrik**/**/*.xml"/>
+						<exclude name="**/FusionCharts/**" />
+						<exclude name="**/FusionChartsFree/**" />
+						<include name="**/plugins/**/fabrik/*.xml"/>
+						<include name="**/plugins/system/fabrikcron/*.xml"/>
+					</fileset>
+				</replaceregexp>
+				
+				<!-- Update create date -->
+				<replaceregexp flags="gs">
+					<regexp pattern="\&lt;creationDate\&gt;(.*)\&lt;/creationDate\&gt;"/>
+					<substitution expression="\&lt;creationDate\&gt;${createdate}\&lt;/creationDate\&gt;"/>
+			  		<fileset dir="${basedir}">
+			  			<include name="**/administrator/components/com_fabrik/*.xml"/>
+						<include name="**/modules/mod_fabrik_list/mod_fabrik_*.xml"/>
+						<include name="**/modules/mod_fabrik*/mod_fabrik_*.xml"/>
+						<include name="**/plugins/fabrik**/**/*.xml"/>
+						<exclude name="**/FusionCharts/**" />
+						<exclude name="**/FusionChartsFree/**" />
+						<include name="**/plugins/**/fabrik/*.xml"/>
+						<include name="**/plugins/system/fabrikcron/*.xml"/>
+					</fileset>
+				</replaceregexp>
+				
+				<!-- Update copyright -->
+				<replaceregexp flags="gs">
+					<regexp pattern="\&lt;copyright\&gt;(.*)\&lt;/copyright\&gt;"/>
+					<substitution expression="\&lt;copyright\&gt;(C) 2005-${year} fabrikar.com\&lt;/copyright\&gt;"/>
+			  		<fileset dir="${basedir}">
+			  			<include name="**/administrator/components/com_fabrik/*.xml"/>
+						<include name="**/modules/mod_fabrik_list/mod_fabrik_*.xml"/>
+						<include name="**/modules/mod_fabrik*/mod_fabrik_*.xml"/>
+						<include name="**/plugins/fabrik**/**/*.xml"/>
+						<exclude name="**/FusionCharts/**" />
+						<exclude name="**/FusionChartsFree/**" />
+						<include name="**/plugins/**/fabrik/*.xml"/>
+						<include name="**/plugins/system/fabrikcron/*.xml"/>
+					</fileset>
+				</replaceregexp>
+				
+				<!-- Update target Joomla platform -->
+				<replaceregexp flags="sg">
+					<regexp pattern="(&lt;extension.*version=&quot;)(\d\.\d)(&quot;\s*&gt;)" />
+					<substitution expression="\1${jversion}\3"/>
+			  		<fileset dir="${basedir}">
+						<include name="**/administrator/components/com_fabrik/*.xml"/>
+						<include name="**/modules/mod_fabrik*/mod_fabrik_*.xml"/>
+						<include name="**/plugins/fabrik**/**/*.xml"/>
+						<exclude name="**/FusionCharts/**" />
+						<exclude name="**/FusionChartsFree/**" />
+						<include name="**/plugins/**/fabrik/*.xml"/>
+						<include name="**/plugins/system/fabrikcron/*.xml"/>
+					</fileset>
+				</replaceregexp>
+				
+					
 					<!--  need to do /:node/:node as fabrik.xml sets a namespace (xmlns) -->
-				 	<xmltask todir="${basedir}">
+				 	<!-- <xmltask todir="${basedir}">
 						<fileset dir="${basedir}">
 							<include name="**/administrator/components/com_fabrik/fabrik.xml"/>
 						</fileset>
 						<replace path="/:extension/:version/text()" withText="${version}"/> 
 						<replace path="/:extension/:creationDate/text()" withText="${createdate}" />
 						<replace path="/:extension/:copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
-						<attr path="/:extension" attr="version" value="${update.target_platform_version}" />
+						<attr path="/:extension" attr="version" value="${jversion}" />
 					</xmltask>
 					
 					<xmltask todir="${basedir}">
@@ -666,17 +798,17 @@
 						<replace path="/install/version/text()" withText="${version}"/> 
 						<replace path="/install/creationDate/text()" withText="${createdate}" />
 						<replace path="/install/copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
-						<attr path="/install" attr="version" value="${update.target_platform_version}" />
+						<attr path="/install" attr="version" value="${jversion}" />
 					</xmltask>
 					
 					<xmltask todir="${basedir}">
 						<fileset dir="${basedir}">
 							<include name="**/modules/mod_fabrik*/mod_fabrik_*.xml"/>
 						</fileset>
-						<replace path="/:extension/:version/text()" withText="${version}"/> 
-						<replace path="/:extension/:creationDate/text()" withText="${createdate}" />
-						<replace path="/:extension/:copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
-						<attr path="/:extension" attr="version" value="${update.target_platform_version}" />
+						<replace path="/extension/version/text()" withText="${version}"/> 
+						<replace path="/extension/creationDate/text()" withText="${createdate}" />
+						<replace path="/extension/copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
+						<attr path="/extension" attr="version" value="${jversion}" />
 					</xmltask>
 					
 					
@@ -689,7 +821,7 @@
 						<replace path="/extension/version/text()" withText="${version}"/> 
 						<replace path="/extension/creationDate/text()" withText="${createdate}" />
 						<replace path="/extension/copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
-						<attr path="/extension" attr="version" value="${update.target_platform_version}" />
+						<attr path="/extension" attr="version" value="${jversion}" />
 					</xmltask>
 					
 					<xmltask todir="${basedir}">
@@ -700,10 +832,37 @@
 						<replace path="/extension/version/text()" withText="${version}"/> 
 						<replace path="/extension/creationDate/text()" withText="${createdate}" />
 						<replace path="/extension/copyright/text()" withText="(C) 2005-${year} fabrikar.com" />
-						<attr path="/extension" attr="version" value="${update.target_platform_version}" />
-					</xmltask>
+						<attr path="/extension" attr="version" value="${jversion}" />
+					</xmltask> -->
 				</then>
 			</if>
+	</target>
+	
+	<target name="git.tags.get">
+		 <exec executable="git" failonerror="true" outputproperty="git.tag">
+		        <arg line="tag"/>
+		    </exec> 
+		     <script language="javascript"><![CDATA[
+		//get the two most recent tags to get the diff
+		var tags = project.getProperty("git.tag").replace("\r", "").split("\n"),
+		curTag = tags[tags.length-3],//was -1 but need to ignore  3.0a and 30.b
+		priorTag = tags[tags.length-4]; //was -2 but need to ignore 3.0a and 30.b
+		project.setProperty("project.current", curTag);
+		project.setProperty("project.previous", priorTag);
+		project.setProperty("git.log.range", priorTag + ".." + curTag);
+		
+		project.setProperty("git.tags", tags.join(','));
+		]]></script>
+	</target>
+	
+	<target name="changelog.update">
+		<input message="Changelog: Current tag" addproperty="git.log.range.end" validargs="${git.tags}" defaultvalue="${project.current}" />
+		<input message="Changelog: Previous tag" addproperty="git.log.range.start" validargs="${git.tags}" defaultvalue="${project.previous}" />		
+		<exec executable="git" failonerror="true" outputproperty="git.changelog">
+        	<arg line="log --pretty=format:'* %s (%an)' ${git.log.range.start}..${git.log.range.end}"/>
+    	</exec> 
+       <echo file="${cfg.destdir}/CHANGELOG-${git.log.range.end}.txt">${git.changelog}
+     </echo>
 	</target>
 	
 </project>

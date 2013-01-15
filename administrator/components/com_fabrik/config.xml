@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <config>
-
+	<fieldset label="COM_FABRIK_GLOBAL" name="global">
+	
+		<field name="enable_big_selects" 
+			type="radio" 
+			default="0"
+			label="COM_FABRIK_FIELD_ENABLE_BIG_SELECTS_LABEL" 
+			description="COM_FABRIK_FIELD_ENABLE_BIG_SELECTS_DESC">
+				<option value="0">JNO</option>
+				<option value="1">JYES</option>
+		</field>
+			
+	</fieldset>
 	<fieldset label="COM_FABRIK_LISTS" name="lists">
 
 		<field name="fbConf_alter_existing_db_cols"
@@ -55,6 +66,15 @@
 			type="radio">
 				<option value="0">JNO</option>
 				<option value="1">JYES</option>
+		</field>
+		
+		<field name="actionMethod"
+			default="floating"
+			type="list"
+			label="COM_FABRIK_FIELD_ACTION_METHOD_LABEL"
+			description="COM_FABRIK_FIELD_ACTION_METHOD_DESC">
+				<option value="inline">COM_FABRIK_FIELD_ACTION_METHOD_INLINE</option>
+				<option value="floating">COM_FABRIK_FIELD_ACTION_METHOD_FLOATING</option>
 		</field>
 
 	</fieldset>
@@ -126,7 +146,18 @@
 		<field name="include_lightbox_js"
 			default="1"
 			label="COM_FABRIK_LIGHTBOX_JS_LABEL"
-			type="radio">
+			description="COM_FABRIK_LIGHTBOX_JS_DESC"
+			type="list">
+				<option value="0">JNO</option>
+				<option value="1">Auto</option>
+				<option value="2">JYES</option>
+		</field>
+		
+		<field name="flexie"
+			type="radio"
+			default="1"
+			label="COM_FABRIK_FLEXIE_LABEL"
+			description="COM_FABRIK_FLEXIE_DESC">
 				<option value="0">JNO</option>
 				<option value="1">JYES</option>
 		</field>
@@ -187,9 +218,10 @@
 			default="0"
 			description="COM_FABRIK_FABRIK_DEBUG_DESC"
 			label="COM_FABRIK_FABRIK_DEBUG_LABEL"
-			type="radio">
+			type="list">
 				<option value="0">JNO</option>
 				<option value="1">JYES</option>
+				<option value="2">COM_FABRIK_FABRIK_DEBUG_JS</option>
 		</field>
 		
 		<field name="pdf_debug"
@@ -203,7 +235,7 @@
 
 	</fieldset>
 
-	<fieldset label="COM_FABRIK_SEF" name="sef">
+	<fieldset label="COM_FABRIK_SEF404" name="sef">
 		<field default="0" description="COM_FABRIK_SEF_PREPEND_MENU_TITLE_DESC" label="COM_FABRIK_SEF_PREPEND_MENU_TITLE_LABEL" name="fabrik_sef_prepend_menu_title" type="radio">
 			<option value="0">JNO</option>
 			<option value="1">JYES</option>

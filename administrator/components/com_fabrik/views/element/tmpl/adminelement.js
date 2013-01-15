@@ -13,22 +13,21 @@ var fabrikAdminElement = new Class({
 		jsevents: []
 	},
 
-	initialize: function (plugins, options, lang) {
-		this.parent(plugins, lang);
-		this.opts.type = 'validationrule';
+	initialize: function (plugins, options, id) {
+		this.parent(plugins, id, 'validationrule');
 		this.setOptions(options);
 		this.watchPluginDd();
 		this.setParentViz();
 		
 		this.jsCounter = 0;
 		this.jsactions = ['focus', 'blur', 'abort', 'click', 'change', 'dblclick', 'keydown', 'keypress', 'keyup', 'mouseup', 'mousedown', 'mouseover', 'select', 'load', 'unload'];
-		this.eEvents = ['hide', 'show', 'fadeout', 'fadein', 'slide in', 'slide out', 'slide toggle'];
+		this.eEvents = ['hide', 'show', 'fadeout', 'fadein', 'slide in', 'slide out', 'slide toggle', 'clear'];
 		this.eTrigger = this.options.elements;
-		this.eConditions = ['<', '<=', '==', '>=', '>', '!='];
+		this.eConditions = ['<', '<=', '==', '>=', '>', '!=', 'hidden', 'shown', 'CONTAINS', '!CONTAINS'];
 		if (typeOf(document.id('addJavascript')) === false) {
 			fconsole('add js button not found');
 		} else {
-			$('addJavascript').addEvent('click', function (e) {
+			document.id('addJavascript').addEvent('click', function (e) {
 				e.stop();
 				this.addJavascript();
 			}.bind(this));
@@ -37,11 +36,13 @@ var fabrikAdminElement = new Class({
 			this.addJavascript(opt);
 		}.bind(this));
 		
-		document.id('jform_plugin').addEvent('change', this.changePlugin.bindWithEvent(this));
+		document.id('jform_plugin').addEvent('change', function (e) {
+			e.stop();
+			this.changePlugin(e);
+		}.bind(this));
 	},
 	
 	changePlugin: function (e) {
-		e.stop();
 		document.id('plugin-container').empty().adopt(
 		new Element('span').set('text', 'Loading....')
 		);
@@ -58,7 +59,7 @@ var fabrikAdminElement = new Class({
 				'format': 'raw',
 				'plugin': e.target.get('value')
 			},
-			'update': $('plugin-container'),
+			'update': document.id('plugin-container'),
 			'onComplete': function (r) {
 				document.id('plugin-container').set('html', r);
 				$exec(this.script);
@@ -80,7 +81,8 @@ var fabrikAdminElement = new Class({
 				js_e_trigger: '',
 				js_e_condition: '',
 				js_e_value: '',
-				code: ''
+				code: '',
+				js_published: 1
 			}};
 		}
 		opt.code = opt.code ? opt.code : '';
@@ -90,6 +92,21 @@ var fabrikAdminElement = new Class({
 			'name': 'jform[js_code][]',
 			'class': 'inputbox'
 		}).set('text', opt.code);
+		
+		var published = opt.params.js_published ? opt.params.js_published : '1';
+		var yesno = [];
+		var yesOpts = {'value': 1};
+		var noOpts = {'value': 0};
+		if (published.toInt() === 0) {
+			noOpts.selected = 'selected';
+		} else {
+			yesOpts.selected = 'selected';
+		}
+		yesno.push(new Element('option', noOpts).set('text', Joomla.JText._('JNO')));
+		yesno.push(new Element('option', yesOpts).set('text', Joomla.JText._('JYES')));
+		
+		published = new Element('select.inputbox.elementtype', {'name': 'jform[js_publised][]'}).adopt(yesno);
+		
 		action = this._makeSel(this.jsCounter, 'jform[js_action][]', this.jsactions, opt.action);
 		var evs = this._makeSel(this.jsCounter, 'js_e_event[]', this.eEvents, opt.params.js_e_event, Joomla.JText._('COM_FABRIK_SELECT_DO'));
 		var triggers = this._makeSel(this.jsCounter, 'js_e_trigger[]', this.eTrigger, opt.params.js_e_trigger, Joomla.JText._('COM_FABRIK_SELECT_ON'));
@@ -102,6 +119,7 @@ var fabrikAdminElement = new Class({
 			new Element('tbody', {'class': 'adminform', 'id': 'jsAction_' + this.jsCounter}).adopt([
 				new Element('tr').adopt(new Element('td', {'colspan': 2})),
 				new Element('tr').adopt([new Element('td', {'class': 'paramlist_key'}).appendText(Joomla.JText._('COM_FABRIK_ACTION')), new Element('td').adopt(action)]),
+				new Element('tr').adopt([new Element('td', {'class': 'paramlist_key'}).appendText(Joomla.JText._('COM_FABRIK_PUBLISHED')), new Element('td').adopt(published)]),
 				new Element('tr').adopt([new Element('td', {'class': 'paramlist_key'}).appendText(Joomla.JText._('COM_FABRIK_CODE')), new Element('td').adopt(code)]),
 				new Element('tr').adopt(new Element('td', {
 					'colspan': 2,
@@ -143,7 +161,7 @@ var fabrikAdminElement = new Class({
 	},
 	
 	watchPluginDd: function () {
-		$('jform_plugin').addEvent('change', function (e) {
+		document.id('jform_plugin').addEvent('change', function (e) {
 			e.stop();
 			var opt = e.target.get('value');
 			$$('.elementSettings').each(function (tab) {
@@ -183,14 +201,14 @@ var fabrikAdminElement = new Class({
 		}
 	},
 	
+	// deprecated???
+	
 	getPluginTop: function (plugin, opts) {
 		return new Element('tr').adopt(
 			new Element('td').adopt([
 				new Element('input', {'value': Joomla.JText._('COM_FABRIK_ACTION'), 'size': 3, 'readonly': true, 'class': 'readonly'}),
 				this._makeSel('inputbox elementtype', 'jform[validationrule][plugin][]', this.plugins, plugin)
-			])
-		
-		);
+			]));
 	}
 });
 
@@ -219,6 +237,6 @@ function setAll(t, elName) {
 }
 
 function deleteSubElements(sTagId) {
-	var oNode = $(sTagId);
+	var oNode = document.id(sTagId);
 	oNode.parentNode.removeChild(oNode);
 }

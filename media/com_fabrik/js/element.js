@@ -17,22 +17,30 @@ var FbElement =  new Class({
 		isJoin: false,
 		joinId: 0
 	},
-		
+	
+	/**
+	 * Ini the element
+	 * 
+	 * @return  bool  false if document.id(this.options.element) not found
+	 */
+	
 	initialize: function (element, options) {
 		this.plugin = '';
 		options.element = element;
 		this.strElement = element;
 		this.loadEvents = []; // need to store these for use if the form is reset
-		this.changeEvents = []; // need to store these for gory reasons to do with cloning
+		this.events = $H({}); // was changeEvents
 		this.setOptions(options);
-		this.setElement();
+		return this.setElement();
 	},
 	
 	setElement: function () {
 		if (document.id(this.options.element)) {
 			this.element = document.id(this.options.element);
 			this.setorigId();
+			return true;
 		}
+		return false;
 	},
 	
 	get: function (v) {
@@ -101,6 +109,18 @@ var FbElement =  new Class({
 		return ['form'];
 	},
 	
+	/**
+	 * Set names/ids/elements ect when the elements group is cloned
+	 * 
+	 * @param   int  id  element id
+	 * @since   3.0.7
+	 */
+
+	cloneUpdateIds: function (id) {
+		this.element = document.id(id);
+		this.options.element = id;
+	},
+	
 	runLoadEvent : function (js, delay) {
 		delay = delay ? delay : 0;
 		//should use eval and not Browser.exec to maintain reference to 'this'
@@ -124,10 +144,18 @@ var FbElement =  new Class({
 	 */
 	removeCustomEvents: function () {},
 	
-	renewChangeEvents: function () {
-		this.element.removeEvents('change');
-		this.changeEvents.each(function (js) {
-			this.addNewEventAux('change', js);
+	/**
+	 * Was renewChangeEvents() but dont see why change events should be treated
+	 * differently to other events?
+	 * 
+	 * @since 3.0.7
+	 */
+	renewEvents: function () {
+		this.events.each(function (fns, type) {
+			this.element.removeEvents(type);
+			fns.each(function (js) {
+				this.addNewEventAux(type, js);
+			}.bind(this));
 		}.bind(this));
 	},
 	
@@ -135,7 +163,7 @@ var FbElement =  new Class({
 		this.element.addEvent(action, function (e) {
 			e.stop();
 			typeOf(js) === 'function' ? js.delay(0) : eval(js);
-		});
+		}.bind(this));
 	},
 	
 	addNewEvent: function (action, js) {
@@ -144,12 +172,13 @@ var FbElement =  new Class({
 			this.runLoadEvent(js);
 		} else {
 			if (!this.element) {
-				this.element = $(this.strElement);
+				this.element = document.id(this.strElement);
 			}
 			if (this.element) {
-				if (action === 'change') {
-					this.changeEvents.push(js);
+				if (!Object.keys(this.events).contains(action)) {
+					this.events[action] = [];
 				}
+				this.events[action].push(js);
 				this.addNewEventAux(action, js);
 			}
 		}
@@ -161,7 +190,7 @@ var FbElement =  new Class({
 	addNewOption: function (val, label)
 	{
 		var a;
-		var added = $(this.options.element + '_additions').value;
+		var added = document.id(this.options.element + '_additions').value;
 		var json = {'val': val, 'label': label};
 		if (added !== '') {
 			a = JSON.decode(added);
@@ -174,7 +203,7 @@ var FbElement =  new Class({
 			s += JSON.encode(a[i]) + ',';
 		}
 		s = s.substring(0, s.length - 1) + ']';
-		$(this.options.element + '_additions').value = s;
+		document.id(this.options.element + '_additions').value = s;
 	},
 	
 	//below functions can override in plugin element classes
@@ -203,12 +232,17 @@ var FbElement =  new Class({
 	
 	reset: function ()
 	{
-		this.loadEvents.each(function (js) {
-			this.runLoadEvent(js, 100);
-		}.bind(this));
+		this.resetEvents();
 		if (this.options.editable === true) {
 			this.update(this.options.defaultVal);
 		}
+	},
+	
+	resetEvents: function ()
+	{
+		this.loadEvents.each(function (js) {
+			this.runLoadEvent(js, 100);
+		}.bind(this));		
 	},
 	
 	clear: function ()
@@ -229,14 +263,14 @@ var FbElement =  new Class({
 	},
 
 	/**
-	 * run when the element is cloned in a repeat group
+	 * Run when the element is cloned in a repeat group
 	 */
 	cloned: function (c) {
-		this.renewChangeEvents();
+		this.renewEvents();
 	},
 	
 	/**
-	 * run when the element is decloled from the form as part of a deleted repeat group
+	 * Run when the element is decloled from the form as part of a deleted repeat group
 	 */
 	decloned: function (groupid) {
 	},
@@ -254,7 +288,7 @@ var FbElement =  new Class({
 	 */
 	getErrorElement: function ()
 	{
-		return this.getContainer().getElement('.fabrikErrorMessage');
+		return this.getContainer().getElements('.fabrikErrorMessage');
 	},
 	
 	/**
@@ -262,7 +296,7 @@ var FbElement =  new Class({
 	 */
 	getValidationFx: function () {
 		if (!this.validationFX) {
-			this.validationFX = new Fx.Morph(this.getErrorElement(), {duration: 500, wait: true});
+			this.validationFX = new Fx.Morph(this.getErrorElement()[0], {duration: 500, wait: true});
 		}
 		return this.validationFX;
 	},
@@ -271,9 +305,16 @@ var FbElement =  new Class({
 		var a;
 		var classes = ['fabrikValidating', 'fabrikError', 'fabrikSuccess'];
 		var container = this.getContainer();
-		
+		if (container === false) {
+			console.log('Notice: couldn not set error msg for ' + msg + ' no container class found');
+			return;
+		}
 		classes.each(function (c) {
 			var r = classname === c ? container.addClass(c) : container.removeClass(c);
+		});
+		var errorElements = this.getErrorElement();
+		errorElements.each(function (e) {
+			e.empty();
 		});
 		switch (classname) {
 		case 'fabrikError':
@@ -282,14 +323,14 @@ var FbElement =  new Class({
 					e.stop();
 				}
 			}}).adopt(this.alertImage);
-			this.getErrorElement().empty().adopt(a);
+			errorElements[0].adopt(a);
 			Fabrik.tips.attach(a);
 			break;
 		case 'fabrikSuccess':
-			this.getErrorElement().empty().adopt(this.successImage);
+			errorElements[0].adopt(this.successImage);
 			break;
 		case 'fabrikValidating':
-			this.getErrorElement().empty().adopt(this.loadingImage);
+			errorElements[0].adopt(this.loadingImage);
 			break;
 		}
 
@@ -441,7 +482,16 @@ var FbElement =  new Class({
 	},
 	
 	select: function () {},
-	focus: function () {}
+	focus: function () {},
+	
+	/**
+	 * Used to find element when form clones a group
+	 * WYSIWYG text editor needs to return something specific as options.element has to use name 
+	 * and not id.
+	 */
+	getCloneName: function () {
+		return this.options.element;
+	}
 });
 
 /**

@@ -56,7 +56,8 @@ class fabrikModelSlideshow extends FabrikFEModelVisualization
 	public function getPlaylist()
 	{
 		$params = $this->getParams();
-
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$mediaElement = $params->get('media_media_elementList');
 		$mediaElement .= '_raw';
 		$titleElement = $params->get('media_title_elementList', '');
@@ -134,7 +135,7 @@ class fabrikModelSlideshow extends FabrikFEModelVisualization
 				}
 				else
 				{
-					$link = JRoute::_('index.php?option=com_fabrik&view=form&formid=' . $form->getId() . '&rowid=' . $row->__pk_val);
+					$link = JRoute::_('index.php?option=com_' . $package . '&view=form&formid=' . $form->getId() . '&rowid=' . $row->__pk_val);
 					$retstr .= "			<info>" . $link . "</info>\n";
 				}
 				$retstr .= "		</track>\n";
@@ -172,7 +173,7 @@ class fabrikModelSlideshow extends FabrikFEModelVisualization
 			{
 				if (!isset($pic->$slideshow_viz_file))
 				{
-					JError::raiseNotice(E_NOTICE, $params->get('slideshow_viz_file', '') . ' not found - is it set to show in the table view?');
+					JError::raiseNotice(E_NOTICE, $params->get('slideshow_viz_file', '') . ' not found - is it set to show in the list view?');
 					break 2;
 				}
 				$pic->$slideshow_viz_file = str_replace("\\", "/", $pic->$slideshow_viz_file);
@@ -277,7 +278,7 @@ class fabrikModelSlideshow extends FabrikFEModelVisualization
 		if ($params->get('slideshow_viz_thumbnails', false))
 		{
 			$slideElement = $this->getSlideElement();
-			$pic_opts['thumbnail'] = $slideElement->getStorage()->_getThumb($pic_opts['href']);
+			$pic_opts['thumbnail'] = $slideElement->getStorage()->_getThumb(str_replace(COM_FABRIK_LIVESITE, '', $pic_opts['href']));
 		}
 	}
 

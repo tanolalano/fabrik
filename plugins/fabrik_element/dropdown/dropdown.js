@@ -61,6 +61,10 @@ var FbDropdown = new Class({
 					}
 					l.value = '';
 					this.addNewOption(val, label);
+					document.id(this.element.id).fireEvent('change', {stop: function () {}});
+					if (this.mySlider) {
+						this.mySlider.toggle();
+					}
 				}
 			}.bind(this));
 		}
@@ -106,7 +110,8 @@ var FbDropdown = new Class({
 		}
 		opts = this.element.getElements('option');
 		if (typeOf(val) === 'number') {
-			//numbers dont have indexOf() methods so ensure they are strings
+			
+			// Numbers dont have indexOf() methods so ensure they are strings
 			val = val.toString(); 
 		}
 		for (var i = 0; i < opts.length; i++) {
@@ -119,12 +124,13 @@ var FbDropdown = new Class({
 		this.watchAdd();
 	},
 	
-	cloned : function ()
+	cloned: function (c)
 	{
 		if (this.options.allowadd === true && this.options.editable !== false) {
 			this.watchAddToggle();
 			this.watchAdd();
 		}
+		this.parent(c);
 	}
 	
 });

@@ -8,25 +8,37 @@
 var FbElementList =  new Class({
 	
 	Extends: FbElement,
-		
+	
+	type: 'text', // Sub element type
+	
 	initialize: function (element, options) {
 		this.parent(element, options);
+		this.addSubClickEvents();
+		this._getSubElements();
+		if (this.options.allowadd === true && this.options.editable !== false) {
+			this.watchAddToggle();
+			this.watchAdd();
+		}
 	},
 	
-	//get the sub element which are the checkboxes themselves
+	// Get the sub element which are the checkboxes themselves
 	
 	_getSubElements: function () {
-		if (!this.element) {
-			this.subElements = $A();
+		var element = this.getElement();
+		if (!element) {
+			this.subElements = [];
 		} else {
-			this.subElements = this.element.getElements('input');
-			this.subElements.each(function (el) {
-				el.addEvent('click', function (e) {
-					Fabrik.fireEvent('fabrik.element.click', [this, e]);
-				});
-			});
+			this.subElements = element.getElements('input');
 		}
 		return this.subElements;
+	},
+	
+	addSubClickEvents: function () {
+		this._getSubElements().each(function (el) {
+			el.addEvent('click', function (e) {
+				Fabrik.fireEvent('fabrik.element.click', [this, e]);
+			});
+		});
 	},
 	
 	addNewEvent: function (action, js) {
@@ -34,52 +46,92 @@ var FbElementList =  new Class({
 			this.loadEvents.push(js);
 			this.runLoadEvent(js);
 		} else {
+			c = this.form.form;
+			var delegate = action + ':relay(input[type=' + this.type + '])';
+			c.addEvent(delegate, function (event, target) {
+				
+				// As we are delegating the event, and reference to 'this' in the js will refer to the first element
+				// When in a repeat group we want to replace that with a reference to the current element.
+				var elid = target.getParent('.fabrikSubElementContainer').id;
+				var that = this.form.formElements[elid];
+				var subEls = that._getSubElements();
+				if (subEls.contains(target)) {
+					
+					// Replace this with that so that the js code runs on the correct element
+					js = js.replace(/this/g, 'that');
+					typeOf(js) === 'function' ? js.delay(0) : eval(js);
+				}
+			}.bind(this));
+		}
+	},
+	
+	checkEnter: function (e) {
+		if (e.key === 'enter') {
+			e.stop();
+			this.startAddNewOption();
+		}
+	},
+	
+	startAddNewOption: function () {
+		var c = this.getContainer();
+		var l = c.getElement('input[name=addPicklistLabel]');
+		var v = c.getElement('input[name=addPicklistValue]');
+		var label = l.value;
+		if (v) {
+			val = v.value;
+		} else {
+			val = label;
+		}
+		if (val === '' || label === '') {
+			alert(Joomla.JText._('PLG_ELEMENT_CHECKBOX_ENTER_VALUE_LABEL'));
+		}
+		else {
+			var r = this.subElements.getLast().findUp('li').clone();
+			var i = r.getElement('input');
+			i.value = val;
+			i.checked = 'checked';
+			if (this.type === 'checkbox') {
+				
+				// Remove the last [*] from the checkbox sub option name (seems only these use incremental []'s)
+				var name = i.name.replace(/^(.*)\[.*\](.*?)$/, '$1$2');
+				i.name = name + '[' + (this.subElements.length) + ']';
+			}
+			r.getElement('span').set('text', label);
+			r.inject(this.subElements.getLast().findUp('li'), 'after');
+			
+			var index = 0;
+			if (this.type === 'radio') {
+				index = this.subElements.length;
+			}
+			var is = $$('input[name=' + i.name + ']');
+			document.id(this.form.form).fireEvent("change", {target: is[index]});
+            
 			this._getSubElements();
-			this.subElements.each(function (el) {
-				el.addEvent(action, function (e) {
-					$type(js) === 'function' ? js.delay(0) : eval(js);
-				});
-			});
+			if (v) {
+				v.value = '';
+			}
+			l.value = '';
+			this.addNewOption(val, label);
+			if (this.mySlider) {
+				this.mySlider.toggle();
+			}
 		}
 	},
 	
 	watchAdd: function () {
 		var val;
 		if (this.options.allowadd === true && this.options.editable !== false) {
-			var id = this.options.element;
 			var c = this.getContainer();
+			c.getElements('input[name=addPicklistLabel], input[name=addPicklistValue]').addEvent('keypress', function (e) {
+				this.checkEnter(e);
+			}.bind(this));
 			c.getElement('input[type=button]').addEvent('click', function (e) {
-				var l = c.getElement('input[name=addPicklistLabel]');
-				var v = c.getElement('input[name=addPicklistValue]');
-				var label = l.value;
-				if (v) {
-					val = v.value;
-				} else {
-					val = label;
-				}
-				if (val === '' || label === '') {
-					alert(Joomla.JText._('PLG_ELEMENT_CHECKBOX_ENTER_VALUE_LABEL'));
-				}
-				else {
-					var r = this.subElements.getLast().findUp('li').clone();
-					r.getElement('input').value = val;
-					var lastid = r.getElement('input').id.replace(id + '_', '').toInt();
-					lastid++;
-					r.getElement('input').checked = 'checked';
-					r.getElement('input').id = id + '_' + lastid;
-					r.getElement('label').setProperty('for', id + '_' + lastid);
-					r.getElement('span').set('text', label);
-					r.inject(this.subElements.getLast().findUp('li'), 'after');
-					this._getSubElements();
-					e.stop();
-					if (v) {
-						v.value = '';
-					}
-					l.value = '';
-					this.addNewOption(val, label);
-					if (this.mySlider) {
-						this.mySlider.toggle();
-					}
+				e.stop();
+				this.startAddNewOption();
+			}.bind(this));
+			document.addEvent('keypress', function (e) {
+				if (e.key === 'esc' && this.mySlider) {
+					this.mySlider.slideOut();
 				}
 			}.bind(this));
 		}

@@ -23,8 +23,17 @@ require_once JPATH_SITE . '/components/com_fabrik/models/element.php';
 class plgFabrik_ElementSlider extends plgFabrik_Element
 {
 
+	/**
+	* If the element 'Include in search all' option is set to 'default' then this states if the
+	* element should be ignored from search all.
+	* @var bool  True, ignore in extended search all.
+	*/
+	protected $ignoreSearchAllDefault = true;
+
+	/** @var  string  db table field type */
 	protected $fieldDesc = 'INT(%s)';
 
+	/** @var  string  db table field size */
 	protected $fieldSize = '6';
 
 	/**
@@ -60,7 +69,7 @@ class plgFabrik_ElementSlider extends plgFabrik_Element
 		$width = (int) $params->get('slider_width', 250);
 		$element = $this->getElement();
 		$val = $this->getValue($data, $repeatCounter);
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			return $val;
 		}

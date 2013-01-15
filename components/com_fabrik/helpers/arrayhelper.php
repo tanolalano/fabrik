@@ -1,7 +1,9 @@
 <?php
 /**
+ * Array helper class
+ *
  * @package     Joomla
- * @subpackage  Fabrik
+ * @subpackage  Fabrik.helpers
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
  * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
  */
@@ -62,7 +64,7 @@ class FArrayHelper extends JArrayHelper
 	 * @return  null
 	 */
 
-	public function setValue(&$array, $key, $val)
+	public static function setValue(&$array, $key, $val)
 	{
 
 		if (strstr($key, '.'))
@@ -238,16 +240,14 @@ class FArrayHelper extends JArrayHelper
 	}
 
 	/**
-	 * @since	3.0.6
-	 *
 	 * Returns first key in an array, used if we aren't sure if array is assoc or
 	 * not, and just want the first row.
 	 *
 	 * @param   array  $array  the array to get the first key for
 	 *
-	 * @return  string  the first array key.
-	 *
 	 * @since	3.0.6
+	 *
+	 * @return  string  the first array key.
 	 */
 
 	public function firstKey($array)

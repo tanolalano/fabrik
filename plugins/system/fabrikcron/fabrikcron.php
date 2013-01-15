@@ -2,11 +2,11 @@
 /**
  * @package     Joomla.Plugin
  * @subpackage  System
- * @copyright	Copyright (C) 2005 - 2008 Pollen 8 Design Ltd. All rights reserved.
- * @license		GNU/GPL, see LICENSE.php
+ * @copyright   Copyright (C) 2005 - 2008 Pollen 8 Design Ltd. All rights reserved.
+ * @license     GNU/GPL, see LICENSE.php
  */
 
-// no direct access
+// No direct access
 defined('_JEXEC') or die('Restricted access');
 
 jimport('joomla.plugin.plugin');
@@ -16,7 +16,8 @@ jimport('joomla.filesystem.file');
  * Joomla! Fabrik cron job plugin
  *
  * @package     Joomla.Plugin
- * @subpackage	System
+ * @subpackage  System
+ * @since       3.0
  */
 
 class plgSystemFabrikcron extends JPlugin
@@ -29,28 +30,30 @@ class plgSystemFabrikcron extends JPlugin
 	 * because func_get_args ( void ) returns a copy of all passed arguments NOT references.
 	 * This causes problems with cross-referencing necessary for the observer design pattern.
 	 *
-	 * @param	object  &$subject  The object to observe
-	 * @param 	array   $config    An array that holds the plugin configuration
-	 * 
+	 * @param   object  &$subject  The object to observe
+	 * @param   array   $config    An array that holds the plugin configuration
+	 *
 	 * @since	1.0
-	 * 
+	 *
 	 * return  void
 	 */
 
-	function plgSystemFabrikcron(&$subject, $config)
+	public function plgSystemFabrikcron(&$subject, $config)
 	{
 		parent::__construct($subject, $config);
 	}
 
 	/**
 	 * Run all active cron jobs
-	 * 
+	 *
 	 * @return void
 	 */
 
 	protected function doCron()
 	{
 		$app = JFactory::getApplication();
+		$mailer = JFactory::getMailer();
+		$config = JFactory::getConfig();
 		if ($app->isAdmin() || JRequest::getVar('option') == 'com_acymailing')
 		{
 			return;
@@ -60,7 +63,7 @@ class plgSystemFabrikcron extends JPlugin
 		{
 			return;
 		}
-		
+
 		// Get all active tasks
 		$db = FabrikWorker::getDbo(true);
 		$now = JRequest::getVar('fabrikcron_run', false);
@@ -69,9 +72,10 @@ class plgSystemFabrikcron extends JPlugin
 
 		if (!$now)
 		{
-			// $$$ hugh - changed from using NOW() to JFactory::getDate(), to avoid time zone issues, see:
-			// http://fabrikar.com/forums/showthread.php?p=102245#post102245
-			// .. which seems reasonable, as we use getDate() to set 'lastrun' to at the end of this func
+			/* $$$ hugh - changed from using NOW() to JFactory::getDate(), to avoid time zone issues, see:
+			 * http://fabrikar.com/forums/showthread.php?p=102245#post102245
+			 * .. which seems reasonable, as we use getDate() to set 'lastrun' to at the end of this func
+			 */
 
 			$nextrun = "CASE " . "WHEN unit = 'second' THEN DATE_ADD( lastrun, INTERVAL frequency SECOND )\n"
 				. "WHEN unit = 'minute' THEN DATE_ADD( lastrun, INTERVAL frequency MINUTE )\n"
@@ -83,7 +87,7 @@ class plgSystemFabrikcron extends JPlugin
 
 			$query = "SELECT id, plugin, lastrun, unit, frequency, $nextrun AS nextrun FROM #__{package}_cron\n";
 			$query .= "WHERE published = '1' ";
-			$query .= "AND $nextrun < '" . JFactory::getDate()->toMySQL() . "'";
+			$query .= "AND $nextrun < '" . JFactory::getDate()->toSql() . "'";
 		}
 		else
 		{
@@ -109,8 +113,10 @@ class plgSystemFabrikcron extends JPlugin
 		{
 			$ids[] = (int) $row->id;
 		}
-		$db->setQuery("UPDATE #__{package}_cron SET published='2' WHERE id IN (" . implode(',', $ids) . ")");
-		//$db->query();
+		$query = $db->getQuery(true);
+		$query->update('#__{package}_cron')->set('published = 2')->where('id IN (' . implode(',', $ids) . ')');
+		$db->setQuery($query);
+		$db->query();
 
 		JModel::addIncludePath(JPATH_SITE . '/components/com_fabrik/models');
 		$pluginManager = JModel::getInstance('Pluginmanager', 'FabrikFEModel');
@@ -118,21 +124,25 @@ class plgSystemFabrikcron extends JPlugin
 
 		foreach ($rows as $row)
 		{
+			// Load in the plugin
+			$plugin = $pluginManager->getPluginFromId($row->id, 'Cron');
+
+			$params = $plugin->getParams();
 			$log->message = '';
 			$log->id = null;
 			$log->referring_url = '';
 
-			// Load in the plugin
-			$plugin = $pluginManager->getPluginFromId($row->id, 'Cron');
 			$log->message_type = 'plg.cron.' . $row->plugin;
 			if (!$plugin->queryStringActivated())
 			{
 				// $$$ hugh - don't forget to make it runnable again before continuing
-				$db->setQuery('UPDATE #__{package}_cron SET published="1" WHERE id = ' . $row->id);
+				$query->clear();
+				$query->update('#__{package}_cron')->set('published = 1')->where('id = ' . $row->id);
+				$db->setQuery($query);
 				$db->query();
 				continue;
 			}
-			$tid = (int) $plugin->getParams()->get('table');
+			$tid = (int) $params->get('table');
 			$thisListModel = clone ($listModel);
 			if ($tid !== 0)
 			{
@@ -187,24 +197,34 @@ class plgSystemFabrikcron extends JPlugin
 			// Mark them as being run
 			// $$$ hugh - and make it runnable again by setting 'state' back to 1
 			$nextrun = JFactory::getDate($tmp);
-			$db->setQuery('UPDATE #__{package}_cron SET published = "1", lastrun = "' . $nextrun->toMySQL() . '" WHERE id = ' . $row->id);
+			$query->clear();
+			$query->update('#__{package}_cron')->set('published = 1, lastrun = ' . $db->quote($nextrun->toSql()))->where('id = ' . $row->id);
+			$db->setQuery($query);
 			$db->query();
 
 			// Log if asked for
-			if ($plugin->getParams()->get('log', 0) == 1)
+			if ($params->get('log', 0) == 1)
 			{
 				$log->store();
+			}
+
+			// Email log message
+			$recipient = explode(',', $params->get('log_email', ''));
+			if (!empty($recipient))
+			{
+				$subject = $config->get('sitename') . ': ' . $row->plugin . ' scheduled task';
+				$mailer->sendMail($config->get('mailfrom'), $config->get('fromname'), $recipient, $subject, $log->message, true);
 			}
 		}
 	}
 
 	/**
 	 * Perform the actual cron after the page has rendered
-	 * 
+	 *
 	 * @return  void
 	 */
 
-	function onAfterRender()
+	public function onAfterRender()
 	{
 		$this->doCron();
 	}

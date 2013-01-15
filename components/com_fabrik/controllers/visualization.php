@@ -1,5 +1,7 @@
 <?php
 /**
+ * Abstract Visualization Controller
+ *
  * @package     Joomla
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -26,16 +28,23 @@ require_once COM_FABRIK_FRONTEND . '/helpers/string.php';
 class FabrikControllerVisualization extends JController
 {
 
-	/* @var int  id used from content plugin when caching turned on to ensure correct element rendered)*/
+	/**
+	 * Id used from content plugin when caching turned on to ensure correct element rendered
+	 *
+	 * @var  int
+	 */
 	public $cacheId = 0;
 
 	/**
 	 * Display the view
 	 *
-	 * @return  null
+	 * @param   boolean  $cachable   If true, the view output will be cached
+	 * @param   array    $urlparams  An array of safe url parameters and their variable types, for valid values see {@link JFilterInput::clean()}.
+	 *
+	 * @return  JController  A JController object to support chaining.
 	 */
 
-	public function display()
+	public function display($cachable = false, $urlparams = false)
 	{
 		$document = JFactory::getDocument();
 		$viewName = str_replace('FabrikControllerVisualization', '', get_class($this));
@@ -76,6 +85,7 @@ class FabrikControllerVisualization extends JController
 			$cache = JFactory::getCache('com_fabrik', 'view');
 			$cache->get($view, 'display', $cacheid);
 		}
+		return $this;
 	}
 
 	/**

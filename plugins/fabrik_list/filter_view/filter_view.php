@@ -38,11 +38,13 @@ class plgFabrik_ListFilter_view extends plgFabrik_List
 
 	public function onGetContentBeforeList($params, $model, $args)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$opts = json_decode($params->get('filter_view_settings'));
 		$labels = $opts ? $opts->label : array();
 		$db = $model->getDb();
 		$item = $model->getTable();
-		$href = 'index.php?option=com_fabrik&view=list&listid=' . $model->getId();
+		$href = 'index.php?option=com_' . $package . '&view=list&listid=' . $model->getId();
 		$html = array();
 		$html[] = '<div class="filter_view" style="width:200px">';
 		if (!empty($labels))
@@ -81,9 +83,9 @@ class plgFabrik_ListFilter_view extends plgFabrik_List
 							$aAsFields = array();
 							$element->getAsField_html($aFields, $aAsFields);
 							$pval = str_replace('___', '.', $val);
-							$query->select(implode(', ', $aFields))->from($db->nameQuote($item->db_table_name));
+							$query->select(implode(', ', $aFields))->from($db->quoteName($item->db_table_name));
 							$query = $model->_buildQueryJoin($query);
-							$query->group($db->nameQuote($pval));
+							$query->group($db->quoteName($pval));
 							$query->order($pval . ' ASC');
 							$db->setQuery($query);
 							$rows = $db->loadObjectList();

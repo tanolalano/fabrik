@@ -1,5 +1,7 @@
 <?php
 /**
+ * Fabrik List Model
+ *
  * @package     Joomla
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -16,7 +18,7 @@ require_once COM_FABRIK_FRONTEND . '/helpers/string.php';
 require_once COM_FABRIK_FRONTEND . '/helpers/list.php';
 
 /**
- * Fabrik Connection Model
+ * Fabrik List Model
  *
  * @package     Joomla
  * @subpackage  Fabrik
@@ -26,16 +28,32 @@ require_once COM_FABRIK_FRONTEND . '/helpers/list.php';
 class FabrikFEModelList extends JModelForm
 {
 
-	/** @var int id of table to load */
+	/**
+	 * List id
+	 *
+	 * @var int
+	 */
 	public $id = null;
 
-	/** @var int package id */
+	/**
+	 * package id
+	 *
+	 * @var int
+	 */
 	public $packageId = null;
 
-	/** @var object the lists connection object */
+	/**
+	 * Lists connection object
+	 *
+	 * @var object
+	 */
 	protected $_oConn = null;
 
-	/** @var object table Table */
+	/**
+	 * List item
+	 *
+	 * @var JTable
+	 */
 	protected $_table = null;
 
 	/** @var object table's form model */
@@ -47,10 +65,14 @@ class FabrikFEModelList extends JModelForm
 	/** @var array column calculations */
 	protected $_aRunCalculations = array();
 
-	/** @var string table output format - set to rss to collect correct element data within function gettData()*/
-	protected $_outPutFormat = 'html';
+	/**
+	 * List output format - set to rss to collect correct element data within function getData()
+	 *
+	 * @var string
+	*/
+	protected $outPutFormat = 'html';
 
-	protected $isMambot = false;
+	public $isMambot = false;
 
 	/** @var object to contain access rights **/
 	protected $_access = null;
@@ -138,8 +160,12 @@ class FabrikFEModelList extends JModelForm
 	/** @var array list of group by statements added by list plugins */
 	var $_pluginQueryGroupBy = array();
 
-	/** @var array - used in views for rendering */
-	var $grouptemplates = array();
+	/**
+	 * Used in views for rendering
+	 *
+	 * @var array
+	*/
+	public $groupTemplates = array();
 
 	/** @var bool is the table a view **/
 	protected $isView = null;
@@ -154,7 +180,7 @@ class FabrikFEModelList extends JModelForm
 	var $tableAction = null;
 
 	/** @var bool doing CSV import */
-	var $_importingCSV = false;
+	public $importingCSV = false;
 
 	var $encrypt = array();
 
@@ -166,7 +192,13 @@ class FabrikFEModelList extends JModelForm
 
 	protected $rows = null;
 
-	/** @var bool should a heading be added for action buttons (returns true if at least one row has buttons)*/
+	/**
+	 * Should a heading be added for action buttons (returns true if at least one row has buttons)
+	 *
+	 * @deprecated (since 3.0.7)
+	 *
+	 * @var bool
+	 */
 	protected $actionHeading = false;
 
 	/** @var array list of column data - used for filters */
@@ -198,7 +230,7 @@ class FabrikFEModelList extends JModelForm
 	 * @since       1.5
 	 *
 	 * @return  mixed  false or form.
-	 */
+	*/
 
 	public function getForm($data = array(), $loadData = true)
 	{
@@ -220,7 +252,7 @@ class FabrikFEModelList extends JModelForm
 		parent::__construct();
 		$usersConfig = JComponentHelper::getParams('com_fabrik');
 		$id = JRequest::getInt('listid', $usersConfig->get('listid'));
-		$this->packageId = (int) JRequest::getInt('packageid', $usersConfig->get('packageid'));
+		$this->packageId = (int) JRequest::getInt('packageId', $usersConfig->get('packageId'));
 		$this->setId($id);
 		$this->_access = new stdClass;
 	}
@@ -253,7 +285,7 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * Get the html that is outputted by table plug-in buttons
+	 * Get the html that is outputted by list plug-in buttons
 	 *
 	 * @return  array  buttons
 	 */
@@ -330,10 +362,10 @@ class FabrikFEModelList extends JModelForm
 		{
 			return JError::raiseError(500, JText::_('COM_FABRIK_INCORRECT_LIST_ID'));
 		}
-		$this->_outPutFormat = JRequest::getVar('format', 'html');
-		if ($this->_outPutFormat == 'fabrikfeed')
+		$this->outPutFormat = JRequest::getVar('format', 'html');
+		if ($this->outPutFormat == 'fabrikfeed')
 		{
-			$this->_outPutFormat = 'feed';
+			$this->outPutFormat = 'feed';
 		}
 
 		$item = $this->getTable();
@@ -365,55 +397,75 @@ class FabrikFEModelList extends JModelForm
 	/**
 	 * Set the navigation limit and limitstart
 	 *
+	 * @param   int  $limitstart_override  specific limitstart to use, if both start and length are specified
+	 * @param   int  $limitlength_override  specific limitlength to use, if both start and length are specified
+	 *
 	 * @return  void
 	 */
 
-	public function setLimits()
+	public function setLimits($limitstart_override = null, $limitlength_override = null)
 	{
-		$app = JFactory::getApplication();
-		$item = $this->getTable();
-		$params = $this->getParams();
-		$id = $this->getId();
-		$this->randomRecords = JRequest::getVar('fabrik_random', $this->randomRecords);
-
-		// $$$ rob dont make the key list.X as the registry doesnt seem to like keys with just '1' a
-		$context = 'com_fabrik.list' . $this->getRenderContext() . '.';
-		$limitStart = $this->randomRecords ? $this->getRandomLimitStart() : 0;
-		// deal with the fact that you can have more than one table on a page so limitstart has to be
-		// specfic per table
-
-		// Deal with the fact that you can have more than one table on a page so limitstart has to be  specfic per table
-
-		// If table is rendered as a content plugin dont set the limits in the session
-		if ($app->scope == 'com_content')
+		/*
+		 * $$$ hugh - added the overrides, so things like visualizations can just turn
+		 * limits off, by passing 0's, without having to go round the houses setting
+		 * the request array before calling this method.
+		 */
+		if (!is_null($limitstart_override) && !is_null($limitlength_override))
 		{
-			$limitLength = JRequest::getInt('limit' . $id, $item->rows_per_page);
-			if (!$this->randomRecords)
-			{
-				$limitStart = JRequest::getInt('limitstart' . $id, $limitStart);
-			}
+			// might want to set the request vars here?
+			$limitStart = $limitstart_override;
+			$limitLength = $limitlength_override;
 		}
 		else
 		{
-			$rowsPerPage = FabrikWorker::getMenuOrRequestVar('rows_per_page', $item->rows_per_page);
-			$limitLength = $app->getUserStateFromRequest($context . 'limitlength', 'limit' . $id, $rowsPerPage);
-			if (!$this->randomRecords)
+			$app = JFactory::getApplication();
+			$package = $app->getUserState('com_fabrik.package', 'fabrik');
+			$item = $this->getTable();
+			$params = $this->getParams();
+			$id = $this->getId();
+			$this->randomRecords = JRequest::getVar('fabrik_random', $this->randomRecords);
+
+			// $$$ rob dont make the key list.X as the registry doesnt seem to like keys with just '1' a
+			$context = 'com_' . $package . '.list' . $this->getRenderContext() . '.';
+			$limitStart = $this->randomRecords ? $this->getRandomLimitStart() : 0;
+
+			// Deal with the fact that you can have more than one table on a page so limitstart has to be
+			// specfic per table
+
+			// Deal with the fact that you can have more than one table on a page so limitstart has to be  specfic per table
+
+			// If table is rendered as a content plugin dont set the limits in the session
+			if ($app->scope == 'com_content')
 			{
-				$limitStart = $app->getUserStateFromRequest($context . 'limitstart', 'limitstart' . $id, $limitStart, 'int');
+				$limitLength = JRequest::getInt('limit' . $id, $item->rows_per_page);
+
+				if (!$this->randomRecords)
+				{
+					$limitStart = JRequest::getInt('limitstart' . $id, $limitStart);
+				}
 			}
-		}
-		if ($this->_outPutFormat == 'feed')
-		{
-			$limitLength = JRequest::getVar('limit', $params->get('rsslimit', 150));
-			$maxLimit = $params->get('rsslimitmax', 2500);
-			if ($limitLength > $maxLimit)
+			else
 			{
-				$limitLength = $maxLimit;
+				$rowsPerPage = FabrikWorker::getMenuOrRequestVar('rows_per_page', $item->rows_per_page, $this->isMambot);
+				$limitLength = $app->getUserStateFromRequest($context . 'limitlength', 'limit' . $id, $rowsPerPage);
+				if (!$this->randomRecords)
+				{
+					$limitStart = $app->getUserStateFromRequest($context . 'limitstart', 'limitstart' . $id, $limitStart, 'int');
+				}
 			}
-		}
-		if ($limitStart < 0)
-		{
-			$limitStart = 0;
+			if ($this->outPutFormat == 'feed')
+			{
+				$limitLength = JRequest::getVar('limit', $params->get('rsslimit', 150));
+				$maxLimit = $params->get('rsslimitmax', 2500);
+				if ($limitLength > $maxLimit)
+				{
+					$limitLength = $maxLimit;
+				}
+			}
+			if ($limitStart < 0)
+			{
+				$limitStart = 0;
+			}
 		}
 		$this->limitLength = $limitLength;
 		$this->limitStart = $limitStart;
@@ -453,9 +505,17 @@ class FabrikFEModelList extends JModelForm
 
 	/**
 	 * Once we have a few table joins, our select statements are
-	 * getting big enough to hit default select length max in MySQL.  Added per-table
+	 * getting big enough to hit default select length max in MySQL.  Added per-list
 	 * setting to enable_big_selects.
 	 *
+	 * 03/10/2012 - Should preserve any old list settings, but this is now set in the global config
+	 * We set it on the main J db in the system plugin setBigSelects() but should do here as well as we
+	 * may not be dealing with the same db.
+	 *
+	 * 2012-10-19 - $$$ hugh - trouble with preserving old list settings is there is no way to change them, without
+	 * directly poking around in the params in the database.  Commenting out the per-list checking.
+	 *
+	 * @deprecated   now handled in FabrikHelper::getDbo(), as it needs to apply to all queruies, including internal / default connection ones.
 	 * @since   3/16/2010
 	 *
 	 * @return  void
@@ -463,12 +523,20 @@ class FabrikFEModelList extends JModelForm
 
 	function setBigSelects()
 	{
-		$fabrikDb = $this->getDb();
+		$fbConfig = JComponentHelper::getParams('com_fabrik');
+		$bigSelects = $fbConfig->get('enable_big_selects', 0);
+		/*
+		 $fabrikDb = $this->getDb();
 		$params = $this->getParams();
-		if ($params->get('enable_big_selects', 0))
+		if ($params->get('enable_big_selects', $bigSelects))
+		 */
+		if ($bigSelects)
 		{
-			$fabrikDb->setQuery("SET OPTION SQL_BIG_SELECTS=1");
+			$fabrikDb = $this->getDb();
+			// $$$ hugh - added bumping up GROUP_CONCAT_MAX_LEN here, rather than adding YAFO for it
+			$fabrikDb->setQuery("SET OPTION SQL_BIG_SELECTS=1, GROUP_CONCAT_MAX_LEN=10240");
 			$fabrikDb->query();
+
 		}
 	}
 
@@ -478,7 +546,7 @@ class FabrikFEModelList extends JModelForm
 	 * @return  array	of objects (rows)
 	 */
 
-	function getData()
+	public function getData()
 	{
 		$profiler = JProfiler::getInstance('Application');
 		$pluginManager = FabrikWorker::getPluginManager();
@@ -488,8 +556,6 @@ class FabrikFEModelList extends JModelForm
 		{
 			return $this->_data;
 		}
-		$traceModel = ini_get('mysql.trace_mode');
-
 		// Needs to be off for FOUND_ROWS() to work
 		ini_set('mysql.trace_mode', 'off');
 		$fabrikDb = $this->getDb();
@@ -497,67 +563,98 @@ class FabrikFEModelList extends JModelForm
 		$query = $this->_buildQuery();
 		JDEBUG ? $profiler->mark('query build end') : null;
 
-		$this->setBigSelects();
+		$cache = FabrikWorker::getCache();
+		// Ajax call needs to recall this - not sure why
+		$this->setLimits();
+		$results = $cache->call(array(get_class($this), 'finesseData'), $this->getId(), $query, $this->limitStart, $this->limitLength, $this->outPutFormat);
+		$this->totalRecords = $results[0];
+		$this->_data = $results[1];
+		$this->groupTemplates = $results[2];
+		$nav = $this->getPagination($this->totalRecords, $this->limitStart, $this->limitLength);
+		$pluginManager->runPlugins('onLoadData', $this, 'list');
+		return $this->_data;
+
+	}
+
+	/**
+	 * Cached Method to run the getData select query and do our Fabrik magikin'
+	 *
+	 * @param   int     $listId        list id
+	 * @param   string  $query         sql query
+	 * @param   int     $start         start of limit
+	 * @param   int     $length        limit length
+	 * @param   string  $outPutFormat  output format csv/html/rss etc
+	 *
+	 * @return array (total records, data set)
+	 */
+
+	public static function finesseData($listId, $query, $start, $length, $outPutFormat)
+	{
+		$profiler = JProfiler::getInstance('Application');
+		$traceModel = ini_get('mysql.trace_mode');
+		$listModel = JModel::getInstance('List', 'FabrikFEModel');
+		$listModel->setId($listId);
+		$listModel->setOutPutFormat($outPutFormat);
+		$fabrikDb = $listModel->getDb();
+		$listModel->setBigSelects();
 
 		// $$$ rob - if merging joined data then we don't want to limit
 		// the query as we have already done so in _buildQuery()
-		if ($this->mergeJoinedData())
+		if ($listModel->mergeJoinedData())
 		{
 			$fabrikDb->setQuery($query);
 		}
 		else
 		{
-			$fabrikDb->setQuery($query, $this->limitStart, $this->limitLength);
+			$fabrikDb->setQuery($query, $start, $length);
 		}
 
-		FabrikHelperHTML::debug($fabrikDb->getQuery(), 'list GetData:' . $this->getTable()->label);
+		FabrikHelperHTML::debug($fabrikDb->getQuery(), 'list GetData:' . $listModel->getTable()->label);
 		JDEBUG ? $profiler->mark('before query run') : null;
 
 		/* set 2nd param to false in attempt to stop joomfish db adaptor from translating the orignal query
 		 * fabrik3 - 2nd param in j16 is now used - guessing that joomfish now uses the third param for the false switch?
-		 * $$$ rob 26/09/2011 note Joomfish not currently released for J1.7
-		 */
-		$this->_data = $fabrikDb->loadObjectList('', 'stdClass', false);
+		* $$$ rob 26/09/2011 note Joomfish not currently released for J1.7
+		*/
+		$listModel->_data = $fabrikDb->loadObjectList('', 'stdClass', false);
 		if ($fabrikDb->getErrorNum() != 0)
 		{
 			jexit('getData:' . $fabrikDb->getErrorMsg());
 		}
 		// $$$ rob better way of getting total records
-		if ($this->mergeJoinedData())
+		if ($listModel->mergeJoinedData())
 		{
-			$this->totalRecords = $this->getTotalRecords();
+			$listModel->totalRecords = $listModel->getTotalRecords();
 		}
 		else
 		{
 			$fabrikDb->setQuery("SELECT FOUND_ROWS()");
-			$this->totalRecords = $fabrikDb->loadResult();
+			$listModel->totalRecords = $fabrikDb->loadResult();
 		}
-		if ($this->randomRecords)
+		if ($listModel->randomRecords)
 		{
-			shuffle($this->_data);
+			shuffle($listModel->_data);
 		}
 		ini_set('mysql.trace_mode', $traceModel);
-		$nav = $this->getPagination($this->totalRecords, $this->limitStart, $this->limitLength);
 
 		JDEBUG ? $profiler->mark('query run and data loaded') : null;
-		$this->translateData($this->_data);
+		$listModel->translateData($listModel->_data);
 		if ($fabrikDb->getErrorNum() != 0)
 		{
 			JError::raiseNotice(500, 'getData: ' . $fabrikDb->getErrorMsg());
 		}
 
-		$this->preFormatFormJoins($this->_data);
+		$listModel->preFormatFormJoins($listModel->_data);
 
 		JDEBUG ? $profiler->mark('start format for joins') : null;
-		$this->formatForJoins($this->_data);
+		$listModel->formatForJoins($listModel->_data);
 
 		JDEBUG ? $profiler->mark('start format data') : null;
-		$this->formatData($this->_data);
-		/*
-		 $this->formatForJoins($this->_data); */
+		$listModel->formatData($listModel->_data);
+
 		JDEBUG ? $profiler->mark('data formatted') : null;
-		$pluginManager->runPlugins('onLoadData', $this, 'list');
-		return $this->_data;
+
+		return array($listModel->totalRecords, $listModel->_data, $listModel->groupTemplates);
 	}
 
 	/**
@@ -661,7 +758,7 @@ class FabrikFEModelList extends JModelForm
 		$tableParams = $this->getParams();
 		$table = $this->getTable();
 		$pluginManager = FabrikWorker::getPluginManager();
-		$method = 'renderListData_' . $this->_outPutFormat;
+		$method = 'renderListData_' . $this->outPutFormat;
 		$this->_aLinkElements = array();
 
 		// $$$ hugh - temp foreach fix
@@ -671,19 +768,26 @@ class FabrikFEModelList extends JModelForm
 		{
 			/* $$$ rob pointless getting elemetsnnot shown in the table view?
 			 * $$$ hugh - oops, they might be using elements in group-by template not shown in table
-			 * http://fabrikar.com/forums/showthread.php?p=102600#post102600
-			 * $$$ rob in that case lets test that rather than loading blindly
-			 * $$$ rob 15/02/2011 or out put may be csv in which we want to format any fields not shown in the form
-			 * $$$ hugh 06/05/2012 added formatAll() mechanism, so plugins can force formatting of all elements
-			 */
-			if ($this->formatAll() || ($tableParams->get('group_by_template') !== '' && $this->getGroupBy() != '') || $this->_outPutFormat == 'csv'
-				|| $this->_outPutFormat == 'feed')
+			* http://fabrikar.com/forums/showthread.php?p=102600#post102600
+			* $$$ rob in that case lets test that rather than loading blindly
+			* $$$ rob 15/02/2011 or out put may be csv in which we want to format any fields not shown in the form
+			* $$$ hugh 06/05/2012 added formatAll() mechanism, so plugins can force formatting of all elements
+			*/
+			if ($this->formatAll() || ($tableParams->get('group_by_template') !== '' && $this->getGroupBy() != '') || $this->outPutFormat == 'csv'
+					|| $this->outPutFormat == 'feed')
 			{
 				$elementModels = $groupModel->getPublishedElements();
 			}
 			else
 			{
+				// $$$ hugh - added 'always render' option to elements, and methods to grab those.
+				// Could probably do this in getPublishedListElements(), but for now just grab a list
+				// of elements with 'always render' set to Yes, and "show in list" set to No,
+				// then merge that with the getPublishedListElements.  This is to work around issues
+				// where things like plugin bubble templates use placeholders for elements not shown in the list.
+				$alwaysRenderElements = $this->getAlwaysRenderElements(true);
 				$elementModels = $groupModel->getPublishedListElements();
+				$elementModels = array_merge($elementModels, $alwaysRenderElements);
 			}
 			foreach ($elementModels as $elementModel)
 			{
@@ -712,15 +816,16 @@ class FabrikFEModelList extends JModelForm
 						{
 							$thisRow = $data[$i];
 							$coldata = $thisRow->$col;
+
 							$data[$i]->$col = $elementModel->renderListData($coldata, $thisRow);
 							$rawCol = $col . '_raw';
 							/* Not sure if this works, as far as I can tell _raw will always exist, even if
 							 * the element model hasn't explicitly done anything with it (except mayeb unsetting it?)
-							 * For instance, the calc element needs to set _raw.  For now, I changed $thisRow above to
-							 * be a = reference to $data[$i], and in renderListData() the calc element modifies
-							 * the _raw entry in $thisRow.  I guess it could simply unset the _raw in $thisRow and
-							 * then implement a renderRawListData.  Anyway, just sayin'.
-							 */
+							* For instance, the calc element needs to set _raw.  For now, I changed $thisRow above to
+							* be a = reference to $data[$i], and in renderListData() the calc element modifies
+							* the _raw entry in $thisRow.  I guess it could simply unset the _raw in $thisRow and
+							* then implement a renderRawListData.  Anyway, just sayin'.
+							*/
 							if (!array_key_exists($rawCol, $thisRow))
 							{
 								$data[$i]->$rawCol = $elementModel->renderRawListData($coldata, $thisRow);
@@ -734,19 +839,23 @@ class FabrikFEModelList extends JModelForm
 		$this->_aGroupInfo = array();
 		$groupTitle = array();
 
-		$this->grouptemplates = array();
+		$this->groupTemplates = array();
 
 		// Check if the data has a group by applied to it
 		$groupBy = $this->getGroupBy();
-		if ($groupBy != '' && $this->_outPutFormat != 'csv')
+		if ($groupBy != '' && $this->outPutFormat != 'csv')
 		{
 			$w = new FabrikWorker;
-			// 3.0 if not group by template spec'd byt group by assigned in qs then use that as the group by tmpl
-			$requestGroupBy = JRequest::getCmd('group_by');
+			// 3.0 if not group by template spec'd by group but assigned in qs then use that as the group by tmpl
+			$requestGroupBy = JRequest::getCmd('group_by', '');
 			if ($requestGroupBy == '')
 			{
 
 				$groupTemplate = $tableParams->get('group_by_template');
+				if ($groupTemplate == '')
+				{
+					$groupTemplate = '{' . $groupBy . '}';
+				}
 			}
 			else
 			{
@@ -770,12 +879,22 @@ class FabrikFEModelList extends JModelForm
 			{
 				if (isset($data[$i]->$groupBy))
 				{
-					$sdata = strip_tags($data[$i]->$groupBy);
+					$sdata = $data[$i]->$groupBy;
+
+					// Test if its just an <a>*</a> tag - if so allow HTML (enables use of icons)
+					$xml = new SimpleXMLElement('<div>' . $sdata . '</div>');
+					$children = $xml->children();
+				//not working in PHP5.2	if (!($xml->count() === 1 && $children[0]->getName() == 'a'))
+					if (!(count($xml->children()) === 1 && $children[0]->getName() == 'a'))
+					{
+						$sdata = strip_tags($sdata);
+					}
+
 					if (!in_array($sdata, $aGroupTitles))
 					{
 						$aGroupTitles[] = $sdata;
-						$grouptemplate = strip_tags($w->parseMessageForPlaceHolder($groupTemplate, JArrayHelper::fromObject($data[$i])));
-						$this->grouptemplates[$sdata] = nl2br($grouptemplate);
+						$grouptemplate = ($w->parseMessageForPlaceHolder($groupTemplate, JArrayHelper::fromObject($data[$i])));
+						$this->groupTemplates[$sdata] = nl2br($grouptemplate);
 						$groupedData[$sdata] = array();
 					}
 					$data[$i]->_groupId = $sdata;
@@ -808,7 +927,7 @@ class FabrikFEModelList extends JModelForm
 			$data = array($data);
 		}
 		JDEBUG ? $profiler->mark('table groupd by applied') : null;
-		if ($this->_outPutFormat != 'pdf' && $this->_outPutFormat != 'csv' && $this->_outPutFormat != 'feed')
+		if ($this->outPutFormat != 'pdf' && $this->outPutFormat != 'csv' && $this->outPutFormat != 'feed')
 		{
 			$this->addSelectBoxAndLinks($data);
 			FabrikHelperHTML::debug($data, 'table:data');
@@ -888,14 +1007,14 @@ class FabrikFEModelList extends JModelForm
 						{
 							$fKeyVal = $row->$fkey;
 							$pkcheck[] = '<input type="checkbox" class="fabrik_joinedkey" value="' . htmlspecialchars($fKeyVal, ENT_COMPAT, 'UTF-8')
-								. '" name="' . $join->table_join_alias . '[' . $row->__pk_val . ']" />';
+							. '" name="' . $join->table_join_alias . '[' . $row->__pk_val . ']" />';
 						}
 					}
 				}
 				$pkcheck[] = '</div>';
 				$pkcheck = implode("\n", $pkcheck);
 				$row->fabrik_select = $this->canSelectRow($row)
-					? '<input type="checkbox" id="id_' . $row->__pk_val . '" name="ids[' . $row->__pk_val . ']" value="'
+				? '<input type="checkbox" id="id_' . $row->__pk_val . '" name="ids[' . $row->__pk_val . ']" value="'
 						. htmlspecialchars($pKeyVal, ENT_COMPAT, 'UTF-8') . '" />' . $pkcheck : '';
 
 				// Add in some default links if no element choosen to be a link
@@ -911,26 +1030,29 @@ class FabrikFEModelList extends JModelForm
 				$row->fabrik_edit = '';
 
 				$editLabel = $params->get('editlabel', JText::_('COM_FABRIK_EDIT'));
-				$editLink = '<a class="fabrik__rowlink" ' . $editLinkAttribs . ' href="' . $edit_link . '" title="' . $editLabel . '">'
-					. FabrikHelperHTML::image('edit.png', 'list', '', array('alt' => $editLabel)) . '<span>' . $editLabel . '</span></a>';
+				$editLink = '<a class="fabrik__rowlink" ' . $editLinkAttribs . 'data-list="list_' . $this->getRenderContext() . '" href="'
+						. $edit_link . '" title="' . $editLabel . '">' . FabrikHelperHTML::image('edit.png', 'list', '', array('alt' => $editLabel))
+						. '<span>' . $editLabel . '</span></a>';
 
 				$viewLabel = $params->get('detaillabel', JText::_('COM_FABRIK_VIEW'));
-				$viewLink = '<a class="fabrik___rowlink" ' . $detailsLinkAttribs . ' href="' . $link . '" title="' . $viewLabel . '">'
-					. FabrikHelperHTML::image('view.png', 'list', '', array('alt' => $viewLabel)) . '<span>' . $viewLabel . '</span></a>';
+				$viewLink = '<a class="fabrik___rowlink" ' . $detailsLinkAttribs . 'data-list="list_' . $this->getRenderContext() . '" href="'
+						. $link . '" title="' . $viewLabel . '">' . FabrikHelperHTML::image('view.png', 'list', '', array('alt' => $viewLabel))
+						. '<span>' . $viewLabel . '</span></a>';
 
 				// 3.0 actions now in list in one cell
 				$row->fabrik_actions = array();
+				$actionMethod = $this->actionMethod();
 				if ($canView || $canEdit)
 				{
 					if ($canEdit == 1)
 					{
-						if ($params->get('editlink') || $params->get('actionMethod') == 'floating')
+						if ($params->get('editlink') || $actionMethod == 'floating')
 						{
 							$row->fabrik_edit = $editLink;
 							$row->fabrik_actions['fabrik_edit'] = '<li class="fabrik_edit">' . $row->fabrik_edit . '</li>';
 						}
 						$row->fabrik_edit_url = $edit_link;
-						if ($this->canViewDetails() && ($params->get('detaillink') == 1 || $params->get('actionMethod') == 'floating'))
+						if ($this->canViewDetails() && ($params->get('detaillink') == 1 || $actionMethod == 'floating'))
 						{
 							$row->fabrik_view = $viewLink;
 							$row->fabrik_actions['fabrik_view'] = '<li class="fabrik_view">' . $row->fabrik_view . '</li>';
@@ -938,7 +1060,7 @@ class FabrikFEModelList extends JModelForm
 					}
 					else
 					{
-						if ($this->canViewDetails() && ($params->get('detaillink') == '1' || $params->get('actionMethod') == 'floating'))
+						if ($this->canViewDetails() && ($params->get('detaillink') == '1' || $actionMethod == 'floating'))
 						{
 							if (empty($this->_aLinkElements))
 							{
@@ -953,7 +1075,7 @@ class FabrikFEModelList extends JModelForm
 						}
 					}
 				}
-				if ($this->canViewDetails() && !$viewLinkAdded && ($params->get('detaillink') == '1' || $params->get('actionMethod') == 'floating'))
+				if ($this->canViewDetails() && !$viewLinkAdded && ($params->get('detaillink') == '1' || $actionMethod == 'floating'))
 				{
 					$link = $this->viewDetailsLink($row, 'details');
 					$row->fabrik_view_url = $link;
@@ -1019,8 +1141,8 @@ class FabrikFEModelList extends JModelForm
 						$popupLink = $factedlinks->linkedform_linktype->$keys[$f];
 						/* $$$ hugh @TODO - rob, can you check this, I added this line,
 						 * but the logic applied for $val in the linked table code above seems to be needed?
-						 * http://fabrikar.com/forums/showthread.php?t=9535
-						 */
+						* http://fabrikar.com/forums/showthread.php?t=9535
+						*/
 						$val = $pKeyVal;
 						if ($linkedForm !== '0')
 						{
@@ -1029,7 +1151,8 @@ class FabrikFEModelList extends JModelForm
 								// $$$rob moved these two lines here as there were giving warnings since Hugh commented out the if ($element != '') {
 								$linkKey = @$join->db_table_name . '___' . @$join->name;
 								$gkey = $linkKey . '_form_heading';
-								$linkLabel = $this->parseMessageForRowHolder($factedlinks->linkedformtext->$keys[$f], JArrayHelper::fromObject($row));
+								$row2 = JArrayHelper::fromObject($row);
+								$linkLabel = $this->parseMessageForRowHolder($factedlinks->linkedformtext->$keys[$f], $row2);
 								$group[$i]->$gkey = $this->viewFormLink($popupLink, $join, $row, $linkKey, $val, false, $f);
 							}
 						}
@@ -1059,7 +1182,6 @@ class FabrikFEModelList extends JModelForm
 					{
 						$this->rowActionCount = count($row->fabrik_actions);
 					}
-					$this->actionHeading = true;
 					$row->fabrik_actions = '<ul class="fabrik_action">' . implode("\n", $row->fabrik_actions) . '</ul>';
 				}
 				else
@@ -1067,6 +1189,30 @@ class FabrikFEModelList extends JModelForm
 					$row->fabrik_actions = '';
 				}
 			}
+		}
+	}
+
+	/**
+	 * Get the way row buttons are rendered floating/inline
+	 * Can be set either by global config or list options
+	 *
+	 * @since   3.0.7
+	 *
+	 * @return  string
+	 */
+
+	public function actionMethod()
+	{
+		$params = $this->getParams();
+		if ($params->get('actionMethod', 'default') == 'default')
+		{
+			// Use global
+			$fbConfig = JComponentHelper::getParams('com_fabrik');
+			return $fbConfig->get('actionMethod', 'floating');
+		}
+		else
+		{
+			return $params->get('actionMethod', 'floating');
 		}
 	}
 
@@ -1082,8 +1228,8 @@ class FabrikFEModelList extends JModelForm
 	{
 		$tpl = $this->getTmpl();
 		return '<li class="fabrik_delete"><a href="#" class="delete" title="' . JText::_('COM_FABRIK_DELETE') . '">'
-			. FabrikHelperHTML::image('delete.png', 'list', $tpl, array('alt' => JText::_('COM_FABRIK_DELETE'))) . '<span>'
-			. JText::_('COM_FABRIK_DELETE') . '</span></a></li>';
+				. FabrikHelperHTML::image('delete.png', 'list', $tpl, array('alt' => JText::_('COM_FABRIK_DELETE'))) . '<span>'
+						. JText::_('COM_FABRIK_DELETE') . '</span></a></li>';
 	}
 
 	/**
@@ -1097,6 +1243,8 @@ class FabrikFEModelList extends JModelForm
 
 	protected function getTableLinks()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		if (isset($this->tableLinks))
 		{
 			return $this->tableLinks;
@@ -1113,7 +1261,7 @@ class FabrikFEModelList extends JModelForm
 			$query->select('*')->from('#__menu');
 			foreach ($joinsToThisKey as $element)
 			{
-				$linkWhere[] = "link LIKE 'index.php?option=com_fabrik&view=list&listid=" . (int) $element->list_id . "%'";
+				$linkWhere[] = 'link LIKE "index.php?option=com_' . $package . '&view=list&listid=' . (int) $element->list_id . '%"';
 			}
 			$where = 'type = "component" AND (' . implode(' OR ', $linkWhere) . ')';
 			$query->where($where);
@@ -1151,10 +1299,10 @@ class FabrikFEModelList extends JModelForm
 		$linkKey = FabrikString::safeColName($key);
 		$fparams = $listModel->getParams();
 
-		// Ensure that the facte table's require filters option is set to false
+		// Ensure that the facted list's "require filters" option is set to false
 		$fparams->set('require-filter', false);
 
-		// Ignore facted tables session filters
+		// Ignore facted lists session filters
 		$origIncSesssionFilters = JRequest::getVar('fabrik_incsessionfilters', true);
 		JRequest::setVar('fabrik_incsessionfilters', false);
 		$where = $listModel->_buildQueryWhere(JRequest::getVar('incfilters', 0));
@@ -1164,8 +1312,12 @@ class FabrikFEModelList extends JModelForm
 			$where .= trim($where) == '' ? ' WHERE ' : ' AND ';
 			$where .= "$linkKey IN (" . implode(',', $pks) . ")";
 		}
-		$listModel->set('_joinsSQL', null); //force reload of join sql
-		$listModel->set('includeCddInJoin', false); //trigger load of joins without cdd elements - seems to mess up count otherwise
+		// Force reload of join sql
+		$listModel->set('_joinsSQL', null);
+
+		// Trigger load of joins without cdd elements - seems to mess up count otherwise
+		$listModel->set('includeCddInJoin', false);
+
 		//see http://fabrikar.com/forums/showthread.php?t=12860
 		// $totalSql  = "SELECT $linkKey AS id, COUNT($linkKey) AS total FROM " . $element->db_table_name . " " . $tableModel->_buildQueryJoin();
 
@@ -1175,7 +1327,7 @@ class FabrikFEModelList extends JModelForm
 		// $$$ Jannus - see http://fabrikar.com/forums/showthread.php?t=20751
 		$distinct = $listModel->mergeJoinedData() ? 'DISTINCT ' : '';
 		$totalSql = "SELECT $k2 AS linkKey, $linkKey AS id, COUNT($distinct " . $listModel->getTable()->db_primary_key . ") AS total FROM "
-			. $listModel->getTable()->db_table_name . " " . $listModel->_buildQueryJoin();
+				. $listModel->getTable()->db_table_name . " " . $listModel->_buildQueryJoin();
 
 		$totalSql .= " $where GROUP BY $linkKey";
 		$listModel->set('includeCddInJoin', true);
@@ -1212,8 +1364,11 @@ class FabrikFEModelList extends JModelForm
 		$linkedFormText = $params->get('linkedformtext');
 		$factedlinks = $params->get('factedlinks');
 		$linkedFormText = JArrayHelper::fromObject($factedlinks->linkedformtext);
-		$label = $this->parseMessageForRowHolder(JArrayHelper::getValue($linkedFormText, $elKey), JArrayHelper::fromObject($row));
+		$msg = JArrayHelper::getValue($linkedFormText, $elKey);
+		$row2 = JArrayHelper::fromObject($row);
+		$label = $this->parseMessageForRowHolder($msg, $row2);
 		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		if (!$app->isAdmin())
 		{
 			$Itemid = (int) @$app->getMenu('site')->getActive()->id;
@@ -1232,7 +1387,7 @@ class FabrikFEModelList extends JModelForm
 		if (!$facetTable->canAdd())
 		{
 			return '<div style="text-align:center"><a title="' . JText::_('JERROR_ALERTNOAUTHOR')
-				. '"><img src="media/com_fabrik/images/login.png" alt="' . JText::_('JERROR_ALERTNOAUTHOR') . '" /></a></div>';
+			. '"><img src="media/com_fabrik/images/login.png" alt="' . JText::_('JERROR_ALERTNOAUTHOR') . '" /></a></div>';
 		}
 		if ($app->isAdmin())
 		{
@@ -1267,7 +1422,7 @@ class FabrikFEModelList extends JModelForm
 			$bits[] = 'rowid=0';
 		}
 
-		$url = 'index.php?option=com_fabrik&' . implode('&', $bits);
+		$url = 'index.php?option=com_' . $package . '&' . implode('&', $bits);
 		$url = JRoute::_($url);
 		if (is_null($label) || $label == '')
 		{
@@ -1281,7 +1436,7 @@ class FabrikFEModelList extends JModelForm
 			$opts->title = JText::_('COM_FABRIK_ADD');
 			$opts->evalScripts = 1;
 			$opts = json_encode($opts);
-			$link = "<a rel=\"$opts\" href=\"$url\" class=\"popupwin\" title=\"$label\">" . $label . "</a>";
+			$link = "<a rel='$opts' href=\"$url\" class=\"popupwin\" title=\"$label\">" . $label . "</a>";
 		}
 		else
 		{
@@ -1333,19 +1488,22 @@ class FabrikFEModelList extends JModelForm
 		$elKey = $element->list_id . '-' . $element->form_id . '-' . $element->element_id;
 		$listid = $element->list_id;
 		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$params = $this->getParams();
 		$factedLinks = $params->get('factedlinks');
+
 		/* $$$ hugh - we are getting element keys that aren't in the linkedlisttext.
 		 * not sure why, so added this defensive code.  Should probably find out
-		 * why though!  I just needed to make this error go away NAO!
-		 */
+		* why though!  I just needed to make this error go away NAO!
+		*/
 		$linkedListText = isset($factedLinks->linkedlisttext->$elKey) ? $factedLinks->linkedlisttext->$elKey : '';
-		$label = $this->parseMessageForRowHolder($linkedListText, JArrayHelper::fromObject($row));
+		$row2 = JArrayHelper::fromObject($row);
+		$label = $this->parseMessageForRowHolder($linkedListText, $row2);
 
 		$Itemid = $app->isAdmin() ? 0 : @$app->getMenu('site')->getActive()->id;
 
 		$action = $app->isAdmin() ? 'task' : 'view';
-		$url = 'index.php?option=com_fabrik&';
+		$url = 'index.php?option=com_' . $package . '&';
 
 		if (is_null($listid))
 		{
@@ -1356,7 +1514,7 @@ class FabrikFEModelList extends JModelForm
 		if (!$facetTable->canView())
 		{
 			return '<div style="text-align:center"><a title="' . JText::_('COM_FABRIK_NO_ACCESS_PLEASE_LOGIN')
-				. '"><img src="media/com_fabrik/images/login.png" alt="' . JText::_('COM_FABRIK_NO_ACCESS_PLEASE_LOGIN') . '" /></a></div>';
+			. '"><img src="media/com_fabrik/images/login.png" alt="' . JText::_('COM_FABRIK_NO_ACCESS_PLEASE_LOGIN') . '" /></a></div>';
 		}
 		$tlabel = ($label === '') ? JText::_('COM_FABRIK_NO_RECORDS') : '(0) ' . $label;
 
@@ -1387,7 +1545,7 @@ class FabrikFEModelList extends JModelForm
 			// $$$ rob 01/03/2011 find at matching itemid in another menu item for the related data link
 			foreach ($listLinks as $listLink)
 			{
-				if (strstr($listLink->link, 'index.php?option=com_fabrik&view=list&listid=' . $listid))
+				if (strstr($listLink->link, 'index.php?option=com_' . $package . '&view=list&listid=' . $listid))
 				{
 					$bits[] = 'Itemid=' . $listLink->id;
 					$Itemid = $listLink->id;
@@ -1446,7 +1604,7 @@ class FabrikFEModelList extends JModelForm
 	public function _addLink($data, &$elementModel, $row, $repeatCounter = 0)
 	{
 		$element = $elementModel->getElement();
-		if ($this->_outPutFormat == 'csv' || $element->link_to_detail == 0)
+		if ($this->outPutFormat == 'csv' || $element->link_to_detail == 0)
 		{
 			return $data;
 		}
@@ -1455,7 +1613,7 @@ class FabrikFEModelList extends JModelForm
 
 		// $$$ rob if its a custom link then we aren't linking to the details view so we should
 		// ignore the view details access settings
-		if (!$this->canViewDetails($row) && trim($customLink) == '')
+		if (!($this->canViewDetails($row) || $this->canEdit()) && trim($customLink) == '')
 		{
 			return $data;
 		}
@@ -1477,7 +1635,8 @@ class FabrikFEModelList extends JModelForm
 		{
 			$class = 'fabrik_edit';
 		}
-		$data = '<a class="fabrik___rowlink ' . $class . '" href="' . $link . '">' . $data . '</a>';
+		$data = '<a data-list="list_' . $this->getRenderContext() . '" class="fabrik___rowlink ' . $class . '" href="' . $link . '">' . $data
+		. '</a>';
 		return $data;
 	}
 
@@ -1522,8 +1681,8 @@ class FabrikFEModelList extends JModelForm
 			{
 				/* $$$ hugh - not everything is JSON, some stuff is just plain strings.
 				 * So we need to see if JSON encoding failed, and only use result if it didn't.
-				 * $v = json_decode($v, true);
-				 */
+				* $v = json_decode($v, true);
+				*/
 				if (is_array($v))
 				{
 					$v = JArrayHelper::getValue($v, $repeatCounter);
@@ -1568,17 +1727,17 @@ class FabrikFEModelList extends JModelForm
 		{
 			/* $$$ rob - get a list of the main table's ids limited on the navigation
 			 * this will then be used to filter the main query,
-			 * by modifying the where part of the query
-			 */
+			* by modifying the where part of the query
+			*/
 			$db = $this->getDb();
 			$table = $this->getTable();
 
 			/* $$$ rob 23/05/2012 if the search data is in the joined records we want to get the id's for the joined records and not the master record
 			 see http://fabrikar.com/forums/showthread.php?t=26400. This is a partial hack as I can't see how we know which joined record is really last
-			 $$$ rob 25/05/2012 - slight change so that we work our way up the pk/fk list until we find some ids.
-			 $$$ hugh, later in the day 25/05/2012 - big OOOOPS, see comment below about table_key vs table_join_key!
-			 erm no not a mistake!?! reverted as no example of what was wrong with original code
-			 */
+			$$$ rob 25/05/2012 - slight change so that we work our way up the pk/fk list until we find some ids.
+			$$$ hugh, later in the day 25/05/2012 - big OOOOPS, see comment below about table_key vs table_join_key!
+			erm no not a mistake!?! reverted as no example of what was wrong with original code
+			*/
 			$joins = $this->getJoins();
 
 			// Default to the primary key as before this fix
@@ -1708,7 +1867,7 @@ class FabrikFEModelList extends JModelForm
 			/**
 			 * $$$ rob get an array containing the PRIMARY key values for each joined tables data.
 			 * Stop as soon as we have a set of ids totaling the sum of records contained in $this->mergeQuery / $idRows
-			 */
+			*/
 
 			while (count($ids) < $maxPossibleIds && $lookupC >= 0)
 			{
@@ -1742,9 +1901,9 @@ class FabrikFEModelList extends JModelForm
 		{
 			/* $$$ rob We've already used buildQueryWhere to get our list of main pk ids.
 			 * so lets use that list of ids to create the where statement. This will return 5/10/20 etc
-			 * records from our main table, as per our page nav, even if a main record has 3 rows of joined
-			 * data. If no ids found then do where 1 = -1 to return no records
-			 */
+			* records from our main table, as per our page nav, even if a main record has 3 rows of joined
+			* data. If no ids found then do where 1 = -1 to return no records
+			*/
 			if (!empty($ids))
 			{
 				$query['where'] = ' WHERE ' . $lookUpNames[$lookupC] . ' IN (' . implode(array_unique($ids), ',') . ')';
@@ -1808,7 +1967,7 @@ class FabrikFEModelList extends JModelForm
 		$item = $this->getTable();
 		$pk = FabrikString::safeColName($item->db_primary_key);
 		$params = $this->getParams();
-		if (in_array($this->_outPutFormat, array('raw', 'html', 'feed', 'pdf', 'phocapdf')))
+		if (in_array($this->outPutFormat, array('raw', 'html', 'feed', 'pdf', 'phocapdf')))
 		{
 			$slug = $params->get('sef-slug');
 			$raw = JString::substr($slug, JString::strlen($slug) - 4, 4) == '_raw' ? true : false;
@@ -1820,7 +1979,8 @@ class FabrikFEModelList extends JModelForm
 				$slug = $slugElement->getSlugName($raw);
 			}
 
-			if ($slug != '')
+			// Test slug is not ``.``
+			if (preg_match('/[A-Z|a-z][0-9]/', $slug))
 			{
 				$slug = FabrikString::safeColName($slug);
 				$fields[] = "CONCAT_WS(':', $pk, $slug) AS slug";
@@ -1838,27 +1998,29 @@ class FabrikFEModelList extends JModelForm
 	/**
 	 * Get the select part of the query
 	 *
+	 * @param   string  $mode  list/form - effects which elements are selected
+	 *
 	 * @return  string
 	 */
 
-	function _buildQuerySelect()
+	function _buildQuerySelect($mode = 'list')
 	{
 		$profiler = JProfiler::getInstance('Application');
 		JDEBUG ? $profiler->mark('queryselect: start') : null;
 		$db = $this->getDb();
 		$form = $this->getFormModel();
 		$table = $this->getTable();
-		$form->getGroupsHiarachy(true);
+		$form->getGroupsHiarachy();
 		JDEBUG ? $profiler->mark('queryselect: fields load start') : null;
-		$fields = $this->getAsFields();
+		$fields = $this->getAsFields($mode);
 		$pk = FabrikString::safeColName($table->db_primary_key);
 		$params = $this->getParams();
 		$this->selectSlug($fields);
 		JDEBUG ? $profiler->mark('queryselect: fields loaded') : null;
 		$sfields = (empty($fields)) ? '' : implode(", \n ", $fields) . "\n ";
 
-		// $$$rob added raw as an option to fix issue in saving calendener data
-		if (trim($table->db_primary_key) != '' && (in_array($this->_outPutFormat, array('raw', 'html', 'feed', 'pdf', 'phocapdf', 'csv'))))
+		// $$$rob added raw as an option to fix issue in saving calendar data
+		if (trim($table->db_primary_key) != '' && (in_array($this->outPutFormat, array('raw', 'html', 'feed', 'pdf', 'phocapdf', 'csv'))))
 		{
 			$sfields .= ', ';
 			$strPKey = $pk . ' AS ' . $db->quoteName('__pk_val') . "\n";
@@ -1882,11 +2044,14 @@ class FabrikFEModelList extends JModelForm
 
 	public function _buildQueryOrder($query = false)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$params = $this->getParams();
+		$formModel = $this->getFormModel();
 		$table = $this->getTable();
 		$db = $this->getDb();
 		$this->selectedOrderFields = array();
-		if ($this->_outPutFormat == 'fabrikfeed' || $this->_outPutFormat == 'feed')
+		if ($this->outPutFormat == 'fabrikfeed' || $this->outPutFormat == 'feed')
 		{
 			$dateColId = (int) $params->get('feed_date', 0);
 			$q = $db->getQuery(true);
@@ -1911,33 +2076,24 @@ class FabrikFEModelList extends JModelForm
 		}
 		$session = JFactory::getSession();
 
-		/* $$$rob - when table reordered the controller runs order() and
+		/**
+		 * When list reordered the controller runs order() and
 		 * stores the order settings in the session by calling setOrderByAndDir()
-		 * it then redirects to the table view and here all we need to do it get
-		 * those order settings from the session_cache_expire()
-		 */
+		 * it then redirects to the list view and here all we need to do it get
+		 * those order settings from the session
+		*/
 
 		$elements = $this->getElements();
 
 		// Build the order by statement from the session
 		$strOrder = '';
 		$clearOrdering = (bool) JRequest::getInt('clearordering', false) && JRequest::getCmd('task') !== 'order';
+		$singleOrdering = $this->singleOrdering();
 
-		// $$$tom Added single-ordering option
-		if ($params->get('enable_single_sorting', 'default') == 'default')
-		{
-			// Use global
-			$fbConfig = JComponentHelper::getParams('com_fabrik');
-			$singleOrdering = $fbConfig->get('enable_single_sorting', false);
-		}
-		else
-		{
-			$singleOrdering = $params->get('enable_single_sorting', false);
-		}
 		$id = $this->getId();
 		foreach ($elements as $element)
 		{
-			$context = 'com_fabrik.list' . $this->getRenderContext() . '.order.' . $element->getElement()->id;
+			$context = 'com_' . $package . '.list' . $this->getRenderContext() . '.order.' . $element->getElement()->id;
 			if ($clearOrdering)
 			{
 				$session->set($context, '');
@@ -1951,7 +2107,7 @@ class FabrikFEModelList extends JModelForm
 					if ($dir != '' && $dir != '-' && trim($dir) != 'Array')
 					{
 						$strOrder == '' ? $strOrder = "\n ORDER BY " : $strOrder .= ',';
-						$strOrder .= $element->getOrderByName() . " $dir";
+						$strOrder .= $element->getOrderByName() . ' ' . $dir;
 						$this->orderEls[] = $element->getOrderByName();
 						$this->orderDirs[] = $dir;
 						$element->getAsField_html($this->selectedOrderFields, $aAsFields);
@@ -1971,25 +2127,40 @@ class FabrikFEModelList extends JModelForm
 			{
 				$orderbys = json_decode($table->order_by, true);
 			}
+			// $$$ not sure why, but sometimes $orderbys is NULL at this point.
+			if (!isset($orderbys))
+			{
+				$orderbys = array();
+			}
+			// Covert ids to names (were stored as names but then stored as ids)
+			foreach ($orderbys as &$orderby)
+			{
+				if (is_numeric($orderby))
+				{
+					$elementModel = $formModel->getElement($orderby, true);
+					$orderby = $elementModel ? $elementModel->getOrderByName() : $orderby;
+				}
+			}
 			$orderdirs = explode(',', JRequest::getVar('order_dir', ''));
 			if ($orderdirs[0] == '')
 			{
 				$orderdirs = json_decode($table->order_dir, true);
 			}
+			$els = $this->getElements('filtername');
 			if (!empty($orderbys))
 			{
 				$bits = array();
-				for ($o = 0; $o < count($orderbys); $o++)
+				$o = 0;
+				foreach ($orderbys as $orderbyRaw)
 				{
 					$dir = JArrayHelper::getValue($orderdirs, $o, 'desc');
-					if ($orderbys[$o] !== '')
+					if ($orderbyRaw !== '')
 					{
-						$orderby = FabrikString::safeColName($orderbys[$o]);
-						$els = $this->getElements('filtername');
-						if (array_key_exists($orderby, $els))
+						$orderbyRaw = FabrikString::safeColName($orderbyRaw);
+						if (array_key_exists($orderbyRaw, $els))
 						{
 							// $$$ hugh - getOrderByName can return a CONCAT, ie join element ...
-							$field = $els[$orderby]->getOrderByName();
+							$field = $els[$orderbyRaw]->getOrderByName();
 							if (!JString::stristr($field, 'CONCAT('))
 							{
 								$field = FabrikString::safeColName($field);
@@ -2000,15 +2171,16 @@ class FabrikFEModelList extends JModelForm
 						}
 						else
 						{
-							if (strstr($orderby, '_raw`'))
+							if (strstr($orderbyRaw, '_raw`'))
 							{
-								$orderby = FabrikString::safeColNameToArrayKey($orderby);
+								$orderbyRaw = FabrikString::safeColNameToArrayKey($orderbyRaw);
 							}
-							$bits[] = " $orderby $dir";
-							$this->orderEls[] = $orderby;
+							$bits[] = " $orderbyRaw $dir";
+							$this->orderEls[] = $orderbyRaw;
 							$this->orderDirs[] = $dir;
 						}
 					}
+					$o ++;
 				}
 				if (!empty($bits))
 				{
@@ -2025,8 +2197,8 @@ class FabrikFEModelList extends JModelForm
 		}
 		/* apply group ordering
 		 * @TODO - explain something to hugh!  Why is this "group ordering"?  AFAICT, it's just a secondary
-		 * order by, isn't specific to the Group By feature in any way?  So why not just put this option in
-		 */
+		* order by, isn't specific to the Group By feature in any way?  So why not just put this option in
+		*/
 		$groupOrderBy = $params->get('group_by_order');
 		if ($groupOrderBy != '')
 		{
@@ -2048,6 +2220,30 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
+	 * Should we order on multiple elements or one
+	 *
+	 * @since   3.0.7 (refractored from _buildQueryOrder())
+	 *
+	 * @return  bool
+	 */
+
+	protected function singleOrdering()
+	{
+		$params = $this->getParams();
+		if ($params->get('enable_single_sorting', 'default') == 'default')
+		{
+			// Use global
+			$fbConfig = JComponentHelper::getParams('com_fabrik');
+			$singleOrdering = $fbConfig->get('enable_single_sorting', false);
+		}
+		else
+		{
+			$singleOrdering = $params->get('enable_single_sorting', false);
+		}
+		return $singleOrdering;
+	}
+
+	/**
 	 * Called when the table column order by is clicked
 	 * store order options in session
 	 *
@@ -2056,6 +2252,8 @@ class FabrikFEModelList extends JModelForm
 
 	public function setOrderByAndDir()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$session = JFactory::getSession();
 		$postOrderBy = JRequest::getInt('orderby', '');
 		$postOrderDir = JRequest::getVar('orderdir', '');
@@ -2063,7 +2261,7 @@ class FabrikFEModelList extends JModelForm
 		$id = $this->getRenderContext();
 		if (in_array($postOrderDir, $arOrderVals))
 		{
-			$context = 'com_fabrik.list' . $id . '.order.' . $postOrderBy;
+			$context = 'com_' . $package. '.list' . $id . '.order.' . $postOrderBy;
 			$session->set($context, $postOrderDir);
 		}
 	}
@@ -2116,7 +2314,7 @@ class FabrikFEModelList extends JModelForm
 			}
 			/* Try to order join statements to ensure that you are selecting from tables that have
 			 * already been included (either via a previous join statement or the table select statement)
-			 */
+			*/
 			if (in_array($join->keytable, $selectedTables))
 			{
 				$return[] = $sql;
@@ -2128,9 +2326,9 @@ class FabrikFEModelList extends JModelForm
 
 				/* $statements[$join->keytable] = $sql;
 				 * $$$rob - sometimes the keytable is the same for 2 deferred joins
-				 * in this case the first join is incorrectly overwritten in the $statements array
-				 * keying on join->id should solve this
-				 */
+				* in this case the first join is incorrectly overwritten in the $statements array
+				* keying on join->id should solve this
+				*/
 				$statements[$join->id] = array($join->keytable, $sql);
 			}
 
@@ -2266,9 +2464,9 @@ class FabrikFEModelList extends JModelForm
 
 		/* $$$ hugh - added option to 'require filtering', so if no filters specified
 		 * we return an empty table.  Only do this where $inFilters is set, so we're only doing this
-		 * on the main row count and data fetch, and things like
-		 * filter dropdowns still get built.
-		 */
+		* on the main row count and data fetch, and things like
+		* filter dropdowns still get built.
+		*/
 
 		if ($incFilters && !$this->gotAllRequiredFilters())
 		{
@@ -2435,25 +2633,26 @@ class FabrikFEModelList extends JModelForm
 					{
 						if (!$ingroup)
 						{
+							// Commenting out if statement see - https://github.com/Fabrik/fabrik/issues/404
+
 							// Search all filter after a prefilter - alter 'join' value to 'AND'
-							if ($last_i && JArrayHelper::getValue($filters['search_type'], $iast_i) == 'prefilter'
-								&& JArrayHelper::getValue($filters['search_type'], $i) !== 'prefilter')
+							/* if ($last_i && JArrayHelper::getValue($filters['search_type'], $last_i) == 'prefilter'
+									&& JArrayHelper::getValue($filters['search_type'], $i) !== 'prefilter')
 							{
-								$filters['join'][$i] = 'AND';
-								/* $$$ hugh - if using a search form, with a multiselect object (like checkbox) and
-								 * prefilters, the gstart is never getting set, so have unbalanced )
-								 */
-								if ($filters['search_type'][$i] == 'search')
-								{
-									$gstart = '(';
+							$filters['join'][$i] = 'AND';
+
+							// $$$ hugh - if using a search form, with a multiselect object (like checkbox) and prefilters, the gstart is never getting set, so have unbalanced )
+							if ($filters['search_type'][$i] == 'search')
+							{
+							$gstart = '(';
 									$groupedCount++;
-								}
-							}
-							else
-							{
-								$gstart = '(';
-								$groupedCount++;
-							}
+									}
+									}
+									else
+							{ */
+							$gstart = '(';
+							$groupedCount++;
+							// }
 						}
 						$ingroup = true;
 					}
@@ -2476,7 +2675,8 @@ class FabrikFEModelList extends JModelForm
 						$ingroup = false;
 					}
 				}
-				$sql[] = empty($sql) ? $gstart : $filters['join'][$i] . ' ' . $gstart;
+				$glue = JArrayHelper::getValue($filters['join'], $i, 'AND');
+				$sql[] = empty($sql) ? $gstart : $glue . ' ' . $gstart;
 				$sql[] = $filters['sqlCond'][$i] . $gend;
 			}
 			$last_i = $i;
@@ -2560,7 +2760,7 @@ class FabrikFEModelList extends JModelForm
 					$p = $elementModel->getParams();
 					$o = $p->get('encrypt');
 					$p->set('encrypt', false);
-					$elementModel->getAsField_html($this->searchAllAsFields, $searchAllFields, '', $opts);
+					$elementModel->getAsField_html($this->searchAllAsFields, $searchAllFields, $opts);
 					$p->set('encrypt', $o);
 				}
 			}
@@ -2569,10 +2769,12 @@ class FabrikFEModelList extends JModelForm
 		$db = FabrikWorker::getDbo();
 
 		// If the group by element isnt in the fields (IE its not published) add it (otherwise group by wont work)
-		$longGroupBy = $db->quoteName(FabrikString::safeColNameToArrayKey($table->group_by));
+		//$longGroupBy = $db->quoteName(FabrikString::safeColNameToArrayKey($table->group_by));
+		$longGroupBy = $db->quoteName($this->getGroupBy());
+
 		if (!in_array($longGroupBy, $searchAllFields) && trim($table->group_by) != '')
 		{
-			$this->searchAllAsFields[] = FabrikString::safeColName($table->group_by) . ' AS ' . $longGroupBy;
+			$this->searchAllAsFields[] = FabrikString::safeColName($this->getGroupBy()) . ' AS ' . $longGroupBy;
 			$searchAllFields[] = $longGroupBy;
 		}
 
@@ -2591,10 +2793,12 @@ class FabrikFEModelList extends JModelForm
 	/**
 	 * Get the part of the table sql statement that selects which fields to load
 	 *
+	 * @param   string  $mode  list/form - effects which elements are selected
+	 *
 	 * @return  array	field names to select in getelement data sql query
 	 */
 
-	function &getAsFields()
+	function &getAsFields($mode = 'list')
 	{
 		$profiler = JProfiler::getInstance('Application');
 		if (isset($this->asfields))
@@ -2613,20 +2817,23 @@ class FabrikFEModelList extends JModelForm
 		foreach ($gkeys as $x)
 		{
 			$groupModel = $groups[$x];
-			$elementModels = $groupModel->getListQueryElements();
-			foreach ($elementModels as $elementModel)
+			if ($groupModel->canView() !== false)
 			{
-				$method = 'getAsField_' . $this->_outPutFormat;
-				if (!method_exists($elementModel, $method))
+				$elementModels = $mode === 'list' ? $groupModel->getListQueryElements() : $groupModel->getPublishedElements();
+				foreach ($elementModels as $elementModel)
 				{
-					$method = 'getAsField_html';
+					$method = 'getAsField_' . $this->outPutFormat;
+					if (!method_exists($elementModel, $method))
+					{
+						$method = 'getAsField_html';
+					}
+					$elementModel->$method($this->asfields, $this->fields);
 				}
-				$elementModel->$method($this->asfields, $this->fields);
 			}
 		}
 		/*temporaraily add in the db key so that the edit links work, must remove it before final return
 		 of getData();
-		 */
+		*/
 		JDEBUG ? $profiler->mark('getAsFields: starting to test if a view') : null;
 		if (!$this->isView())
 		{
@@ -2639,7 +2846,7 @@ class FabrikFEModelList extends JModelForm
 		JDEBUG ? $profiler->mark('getAsFields: end of view test') : null;
 
 		// For raw data in packages
-		if ($this->_outPutFormat == 'raw')
+		if ($this->outPutFormat == 'raw')
 		{
 			$str = FabrikString::safeColName($table->db_primary_key) . ' AS __pk_val';
 			$this->fields[] = $str;
@@ -2648,14 +2855,50 @@ class FabrikFEModelList extends JModelForm
 		$this->_group_by_added = false;
 
 		// If the group by element isnt in the fields (IE its not published) add it (otherwise group by wont work)
-		$longGroupBy = $db->quoteName(FabrikString::safeColNameToArrayKey($table->group_by));
-		if (!in_array($longGroupBy, $this->fields) && trim($table->group_by) != '')
+		$longGroupBy = $this->getGroupByName();
+		if (!in_array($longGroupBy, $this->fields) && trim($longGroupBy) != '')
 		{
-			$this->asfields[] = FabrikString::safeColName($table->group_by) . " AS " . $longGroupBy;
+			$this->asfields[] = FabrikString::safeColName($longGroupBy) . ' AS ' . $longGroupBy;
 			$this->fields = $longGroupBy;
 			$this->_group_by_added = true;
 		}
 		return $this->asfields;
+	}
+
+	/**
+	 * Get the group by element regardless of wheter it was stored as id or string
+	 *
+	 * @since 3.0.7
+	 *
+	 * @return  plgFabrik_Element
+	 */
+	protected function getGroupByElement()
+	{
+		$app = JFactory::getApplication();
+		$item = $this->getTable();
+		$formModel = $this->getFormModel();
+		$groupBy = $app->input->get('group_by', $item->group_by, 'string');
+		return $formModel->getElement($groupBy, true);
+	}
+
+	/**
+	 * Get group by field name
+	 *
+	 * @since 3.0.7
+	 *
+	 * @return mixed false or name
+	 */
+
+	protected function getGroupByName()
+	{
+		$db = $this->getDb();
+		$elementModel = $this->getGroupByElement();
+		if (!$elementModel)
+		{
+			return false;
+		}
+		$groupBy = $elementModel->getFullName(false, true, false);
+		return $db->quoteName(FabrikString::safeColNameToArrayKey($groupBy));
 	}
 
 	/**
@@ -2866,11 +3109,8 @@ class FabrikFEModelList extends JModelForm
 		$canUserDo = $this->canUserDo($row, 'allow_edit_details2');
 		/* $$$ hugh - AAAAAAGHHHH!!!  This one took a while ...
 		 * canUserDo() returns true, false, or -1 ... when "loose" testing with !=
-		 * then true is the same as -1.  But we want strict testing, with !==
-		 * so it isn't the same!
-		 * Hmmm - I just noticed canDelete() already has a !== here.
-		 * if ($canUserDo != -1) {
-		 */
+		* then true is the same as -1.  But we want strict testing, with !==
+		*/
 		if ($canUserDo !== -1)
 		{
 			return $canUserDo;
@@ -2878,8 +3118,8 @@ class FabrikFEModelList extends JModelForm
 
 		/* $$$ hugh - FIXME - we really need to split out a onCanEditRow method, rather than overloading
 		 * onCanEdit for both table and per-row contexts.  At the moment, we calling per-row plugins with
-		 * null $row when canEdit() is called in a table context.
-		 */
+		* null $row when canEdit() is called in a table context.
+		*/
 		$canEdit = FabrikWorker::getPluginManager()->runPlugins('onCanEdit', $this, 'list', $row);
 		if (in_array(false, $canEdit))
 		{
@@ -2895,7 +3135,7 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * Checks if any one row is editalbe = used to get the correct headings
+	 * Checks if any one row is editable = used to get the correct headings
 	 *
 	 * @return  bool
 	 */
@@ -2923,7 +3163,7 @@ class FabrikFEModelList extends JModelForm
 	 * @param   object  $row  data
 	 * @param   string  $col  access control setting to compare against
 	 *
-	 * @return  mixed	- if ACL setting defined here return blo, otherwise return -1 to contiune with default acl setting
+	 * @return  mixed	- if ACL setting defined here return bool, otherwise return -1 to contiune with default acl setting
 	 */
 
 	protected function canUserDo($row, $col)
@@ -2933,7 +3173,7 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * Checks user access for deleting records
+	 * Checks user access for deleting records.
 	 *
 	 * @param   object  $row  of data currently active
 	 *
@@ -2942,25 +3182,28 @@ class FabrikFEModelList extends JModelForm
 
 	public function canDelete($row = null)
 	{
+		// Find out if any plugins deny delete.  We then allow a plugin to override with 'false' if
+		// if useDo or group ACL allows edit.  But we don't allow plugin to allow, if userDo or group ACL
+		// deny access.
+		$pluginCanEdit = FabrikWorker::getPluginManager()->runPlugins('onCanDelete', $this, 'list', $row);
+		$pluginCanEdit = !in_array(false, $pluginCanEdit);
 		$canUserDo = $this->canUserDo($row, 'allow_delete2');
 		if ($canUserDo !== -1)
 		{
-			if ($canUserDo === true)
-			{
-				$this->_access->deletePossible = true;
-			}
-			return $canUserDo;
+			// if userDo allows delete, let plugin override
+			return $canUserDo ? $pluginCanEdit : $canUserDo;
 		}
 		if (!is_object($this->_access) || !array_key_exists('delete', $this->_access))
 		{
 			$groups = JFactory::getUser()->authorisedLevels();
 			$this->_access->delete = in_array($this->getParams()->get('allow_delete'), $groups);
 		}
-		return $this->_access->delete;
+		// if group access allows delete, then let plugin override
+		return $this->_access->delete ? $pluginCanEdit : $this->_access->delete;
 	}
 
 	/**
-	 * Determin if any record can be deleted - used to see if we include the
+	 * Determine if any record can be deleted - used to see if we include the
 	 * delete button in the list view
 	 *
 	 * @return  bool
@@ -2968,14 +3211,18 @@ class FabrikFEModelList extends JModelForm
 
 	public function deletePossible()
 	{
-		if (is_object($this->_access))
+		$data = $this->getData();
+		foreach ($data as $rows)
 		{
-			if (array_key_exists('deletePossible', $this->_access))
+			foreach ($rows as $row)
 			{
-				return $this->_access->deletePossible;
+				if ($this->canDelete($row))
+				{
+					return true;
+				}
 			}
 		}
-		return $this->canDelete();
+		return false;
 	}
 
 	/**
@@ -3079,16 +3326,17 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * like getJoins() but exclude cascading dropdown joins
+	 * Like getJoins() but exclude cascading dropdown joins
 	 * seems to be needed when calculating related table's record counts.
 	 * This is called from within _buildQueryJoin()
 	 * and fired if this is done:
 	 * $listModel->set('includeCddInJoin', false);
 	 * as in tableModel::getRecordCounts()
-	 * @return array join objects (table rows - not table objects or models)
+	 *
+	 * @return  array  join objects (table rows - not table objects or models)
 	 */
 
-	function getJoinsNoCdd()
+	protected function getJoinsNoCdd()
 	{
 		if (!isset($this->_joinsNoCdd))
 		{
@@ -3106,7 +3354,7 @@ class FabrikFEModelList extends JModelForm
 			}
 			/* maybe we will have to order by element_id asc to ensure that table joins are loaded
 			 * before element joins (if an element join is in a table join then its 'join_from_table' key needs to be updated
-			 */
+			 		*/
 			$query->order('id');
 			$db->setQuery($query);
 			$this->_joinsNoCdd = $db->loadObjectList();
@@ -3131,18 +3379,18 @@ class FabrikFEModelList extends JModelForm
 		{
 			$form = $this->getFormModel();
 			$form->getGroupsHiarachy();
-			$ids = $form->getElementIds();
+			$ids = $form->getElementIds(array(), array('includePublised' => false));
 			$db = FabrikWorker::getDbo(true);
 			$id = (int) $this->getId();
 			$query = $db->getQuery(true);
-			$query->select('*')->from('#__{package}_joins')->where('list_id = ' . $id, 'OR');
+			$query->select('*')->from('#__{package}_joins')->where('(element_id = 0 AND list_id = ' . $id . ')', 'OR');
 			if (!empty($ids))
 			{
 				$query->where('element_id IN ( ' . implode(', ', $ids) . ')');
 			}
 			/* maybe we will have to order by element_id asc to ensure that table joins are loaded
 			 * before element joins (if an element join is in a table join then its 'join_from_table' key needs to be updated
-			 */
+			 		*/
 			$query->order('id');
 			$db->setQuery($query);
 			$this->_aJoins = $db->loadObjectList();
@@ -3222,11 +3470,13 @@ class FabrikFEModelList extends JModelForm
 				{
 					/* $$$ hugh - changed this to pitch an error and bang out, otherwise if we just set canUse to false, our getData query
 					 * is just going to blow up, with no useful warning msg.
-					 * This is basically a bandaid for corner case where user has (say) host name in J!'s config, and IP address in
-					 * our connection details, or vice versa, which is not uncommon for 'locahost' setups,
-					 * so at least I'll know what the problem is when they post in the forums!
-					 */
-					JError::raiseError(500, JText::_('COM_FABRIK_ERR_JOIN_TO_OTHER_DB'));
+					* This is basically a bandaid for corner case where user has (say) host name in J!'s config, and IP address in
+					* our connection details, or vice versa, which is not uncommon for 'locahost' setups,
+					* so at least I'll know what the problem is when they post in the forums!
+					*/
+
+					// $$$rob - Unfortunaly the user element relies on canUse returning false, when used in a non-default connection so we can't raise an error so commenting out
+					//JError::raiseError(500, JText::_('COM_FABRIK_ERR_JOIN_TO_OTHER_DB'));
 					$join->canUse = false;
 				}
 			}
@@ -3274,14 +3524,14 @@ class FabrikFEModelList extends JModelForm
 
 			/*
 			 * Test case:
-			 * you have a table that joins to a 2nd table
-			 * in that 2nd table there is a database join element
-			 * that 2nd elements key needs to point to the 2nd tables name and not the first
-			 *
-			 * e.g. when you want to create a n-n relationship
-			 *
-			 * events -> (table join) events_artists -> (element join) artist
-			 */
+			* you have a table that joins to a 2nd table
+			* in that 2nd table there is a database join element
+			* that 2nd elements key needs to point to the 2nd tables name and not the first
+			*
+			* e.g. when you want to create a n-n relationship
+			*
+			* events -> (table join) events_artists -> (element join) artist
+			*/
 
 			$join->keytable = $join->join_from_table;
 			if (!array_key_exists($join->group_id, $tableGroups))
@@ -3362,8 +3612,8 @@ class FabrikFEModelList extends JModelForm
 		$dropKey = false;
 		/*$$$ rob - replaced this with getting the table from the group as if we moved the element
 		 *from one group to another $this->getTable gives you the old group's table, where as we want
-		 * the new group's table
-		 */
+		* the new group's table
+		*/
 		$table = $group->getlistModel()->getTable();
 
 		// $$$ hugh - if this is a table-less form ... not much point going any
@@ -3417,8 +3667,7 @@ class FabrikFEModelList extends JModelForm
 				if ($this->canAddFields())
 				{
 					$fabrikDb
-						->setQuery(
-							"ALTER TABLE $tableName ADD COLUMN " . FabrikString::safeColName($element->name) . " $objtype AFTER $lastfield");
+					->setQuery("ALTER TABLE $tableName ADD COLUMN " . FabrikString::safeColName($element->name) . " $objtype AFTER $lastfield");
 					if (!$fabrikDb->query())
 					{
 						return JError::raiseError(500, 'alter structure: ' . $fabrikDb->getErrorMsg());
@@ -3433,8 +3682,8 @@ class FabrikFEModelList extends JModelForm
 
 		/* $$$ rob the Default property for timestamps when they are set to CURRENT_TIMESTAMP
 		 * doesn't show up from getDBFields()  - so presuming a timestamp field will always default
-		 * to the current timestamp (update of the field's data controller in the Extra property (on update CURRENT_TIMESTAMP)
-		 */
+		* to the current timestamp (update of the field's data controller in the Extra property (on update CURRENT_TIMESTAMP)
+				*/
 		$existingDef = '';
 		if (isset($thisFieldDesc->Type))
 		{
@@ -3457,11 +3706,11 @@ class FabrikFEModelList extends JModelForm
 		}
 		/* $$$ hugh 2012/05/13 - tweaking things a little so we don't care about certain differences in type.
 		 * Initally, just integer types and signed vs unsigned.  So if the existing column is TINYINT(3) UNSIGNED
-		 * and we think it's INT(3), i.e. that's what getFieldDescription() returns, let's treat those as functionally
-		 * the same, and not change anything.  Ideally we should turn this into some kind of element model method, so
-		 * we would do something like $base_existingDef = $elementModel->baseFieldDescription($existingDef), and (say) the
-		 * field element, if passed "TINYINT(3) UNSIGNED" would return "INT(3)".  But for now, just tweak it here.
-		 */
+		* and we think it's INT(3), i.e. that's what getFieldDescription() returns, let's treat those as functionally
+		* the same, and not change anything.  Ideally we should turn this into some kind of element model method, so
+		* we would do something like $base_existingDef = $elementModel->baseFieldDescription($existingDef), and (say) the
+		* field element, if passed "TINYINT(3) UNSIGNED" would return "INT(3)".  But for now, just tweak it here.
+		*/
 		$lowerobjtype = JString::strtolower(trim($objtype));
 		$lowerobjtype = str_replace(' not null', '', $lowerobjtype);
 		$lowerobjtype = str_replace(' unsigned', '', $lowerobjtype);
@@ -3502,8 +3751,8 @@ class FabrikFEModelList extends JModelForm
 				{
 					/* $$$ rob ok this is hacky but I had a whole series of elements wiped from the db,
 					 * but wanted to re-add them into the database.
-					 * as the db table already had the fields this error was stopping the save.
-					 */
+					* as the db table already had the fields this error was stopping the save.
+					*/
 					if (!array_key_exists($element->name, $dbdescriptions))
 					{
 						return JError::raiseError(500, 'alter structure: ' . $fabrikDb->getErrorMsg());
@@ -3716,19 +3965,19 @@ class FabrikFEModelList extends JModelForm
 		$params = $this->getParams();
 		$isView = $params->get('isview', null);
 
-		if (!is_null($isView) && (int) $isView > 0)
+		if (!is_null($isView) && (int) $isView >= 0)
 		{
 			return $isView;
 		}
 		/* $$$ hugh - because querying INFORMATION_SCHEMA can be very slow (like minutes!) on
 		 * a shared host, I made a small change.  The edit table view now adds a hidden 'isview'
-		 * param, defaulting to -1 on new tables.  So the following code should only ever execute
-		 * one time, when a new table is saved.  Before this change, because 'isview' wasn't
-		 * included on the edit view (because it's not a "real" user settable param), so didn't
-		 * exist when we picked up the params from the submitted data, this code was running (twice!)
-		 * every time a table was saved.
-		 * http://fabrikar.com/forums/showthread.php?t=16622&page=6
-		 */
+		* param, defaulting to -1 on new tables.  So the following code should only ever execute
+		* one time, when a new table is saved.  Before this change, because 'isview' wasn't
+		* included on the edit view (because it's not a "real" user settable param), so didn't
+		* exist when we picked up the params from the submitted data, this code was running (twice!)
+		* every time a table was saved.
+		* http://fabrikar.com/forums/showthread.php?t=16622&page=6
+		*/
 
 		if (isset($this->isView))
 		{
@@ -3744,7 +3993,7 @@ class FabrikFEModelList extends JModelForm
 			return;
 		}
 		$sql = " SELECT table_name, table_type, engine FROM INFORMATION_SCHEMA.tables " . "WHERE table_name = " . $db->quote($table->db_table_name)
-			. " AND table_type = 'view' AND table_schema = " . $db->quote($dbname);
+		. " AND table_type = 'view' AND table_schema = " . $db->quote($dbname);
 		$db->setQuery($sql);
 		$row = $db->loadObjectList();
 		$this->isView = empty($row) ? 0 : 1;
@@ -3768,24 +4017,25 @@ class FabrikFEModelList extends JModelForm
 	public function storeRequestData($request)
 	{
 		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$session = JFactory::getSession();
 		$registry = $session->get('registry');
-
+		$option = 'com_' . $package;
 		// $tid = 'list'.JRequest::getVar('listref', $this->getRenderContext());
 		$tid = 'list' . $this->getRenderContext();
 
 		// Make sure that we only store data thats been entered from this page first test we aren't in a plugin
-		if (JRequest::getCmd('option') == 'com_fabrik' && is_object($registry))
+		if (JRequest::getCmd('option') == $option && is_object($registry))
 		{
 			// Don't do this when you are viewing a form or details page as it wipes out the table filters
 			$reg = $registry->get('_registry');
-			if (isset($reg['com_fabrik']) && !in_array(JRequest::getCmd('view'), array('form', 'details')))
+			if (isset($reg[$option]) && !in_array(JRequest::getCmd('view'), array('form', 'details')))
 			{
-				unset($reg['com_fabrik']['data']->$tid->filter);
+				unset($reg[$option]['data']->$tid->filter);
 			}
 		}
 
-		$context = 'com_fabrik.' . $tid . '.filter';
+		$context = $option . '.' . $tid . '.filter';
 
 		// @TODO test for _clear_ in values and if so delete session data
 		foreach ($request as $key => $val)
@@ -3799,7 +4049,7 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * creates filter array (return existing if exists)
+	 * Creates filter array (return existing if exists)
 	 *
 	 * @return  array	filters
 	 */
@@ -3823,10 +4073,10 @@ class FabrikFEModelList extends JModelForm
 
 		/* $$$ rob prefilters loaded before anything to avoid issues where you filter on something and
 		 * you have 2 prefilters with joined by an OR - this was incorrectly giving SQL of
-		 * WHERE normal filter = x OR ( prefilter1 = y OR prefilter2 = x)
-		 * this change changes the SQL to
-		 * WHERE ( prefilter1 = y OR prefilter2 = x) AND normal filter = x
-		 */
+		* WHERE normal filter = x OR ( prefilter1 = y OR prefilter2 = x)
+		* this change changes the SQL to
+		* WHERE ( prefilter1 = y OR prefilter2 = x) AND normal filter = x
+		*/
 		$this->getPrefilterArray($this->filters);
 
 		// These are filters created from a search form or normal search
@@ -3874,8 +4124,8 @@ class FabrikFEModelList extends JModelForm
 
 			/* $$$ rob see if the key is a raw filter
 			 * 20/12/2010 - think $key is never with _raw now as it is unset in tablefilter::getQuerystringFilters() although may  be set elsewhere
-			 * - if it is make a note and remove the _raw from the name
-			 */
+			* - if it is make a note and remove the _raw from the name
+			*/
 			$raw = JArrayHelper::getValue($raws, $i, false);
 			if (substr($key, -5, 5) == '_raw`')
 			{
@@ -3934,7 +4184,10 @@ class FabrikFEModelList extends JModelForm
 				$condition = 'REGEXP';
 
 				// $$$ 30/06/2011 rob dont escape the search as it may contain \\\ from preg_escape (e.g. search all on 'c+b)
-				$value = $db->quote($value, false);
+
+				// $$$ 14/11/2012 - Lower case search value - as accented characters e.g. Ö are case sensetive in regex. Key already lower cased in filter model
+
+				// $value = 'LOWER(' . $db->quote($value, false) . ')';
 			}
 			elseif ($condition == 'like')
 			{
@@ -3969,6 +4222,11 @@ class FabrikFEModelList extends JModelForm
 					$value = "\"[[:<:]]" . $value . "[[:>:]]\"";
 				}
 			}
+			if ($condition === 'REGEXP')
+			{
+				// $$$ 15/11/2012 - moved from before getFilterValue() to after as otherwise date filters in querystrings created wonky query
+				$value = 'LOWER(' . $db->quote($value, false) . ')';
+			}
 			if (!array_key_exists($i, $sqlCond) || $sqlCond[$i] == '')
 			{
 				$query = $elementModel->getFilterQuery($key, $condition, $value, $originalValue, $this->filters['search_type'][$i]);
@@ -3992,11 +4250,11 @@ class FabrikFEModelList extends JModelForm
 				$elementModel->defaults = null;
 				if (array_key_exists($key, $readOnlyValues))
 				{
-					$readOnlyValues[$key][] = $elementModel->_getROElement($tmpData);
+					$readOnlyValues[$key][] = $elementModel->getFilterRO($tmpData);
 				}
 				else
 				{
-					$readOnlyValues[$key] = array($elementModel->_getROElement($tmpData));
+					$readOnlyValues[$key] = array($elementModel->getFilterRO($tmpData));
 				}
 				// Set it back to null again so that in form view we dont return this value.
 				$elementModel->defaults = null;
@@ -4008,7 +4266,7 @@ class FabrikFEModelList extends JModelForm
 			{
 				/*$$$rob not sure $value is the right var to put in here - or if its acutally used
 				 * but without this line you get warnings about missing variable in the filter array
-				 */
+				*/
 				$this->filters['filter'][$i] = $value;
 			}
 		}
@@ -4040,9 +4298,11 @@ class FabrikFEModelList extends JModelForm
 	{
 		if (!isset($this->prefilters))
 		{
+			$app = JFactory::getApplication();
+			$package = $app->getUserState('com_fabrik.package', 'fabrik');
 			$params = $this->getParams();
 			$showInList = array();
-			$listels = json_decode(FabrikWorker::getMenuOrRequestVar('list_elements', ''));
+			$listels = json_decode(FabrikWorker::getMenuOrRequestVar('list_elements', '', $this->isMambot));
 			if (isset($listels->show_in_list))
 			{
 				$showInList = $listels->show_in_list;
@@ -4052,7 +4312,7 @@ class FabrikFEModelList extends JModelForm
 			// Are we coming from a post request via a module?
 			$moduleid = 0;
 			$requestRef = JRequest::getVar('listref', '');
-			if ($requestRef !== '' && !strstr($requestRef, 'com_fabrik'))
+			if ($requestRef !== '' && !strstr($requestRef, 'com_' . $package))
 			{
 				// If so we need to load in the modules parameters
 				$ref = explode('_', $requestRef);
@@ -4074,12 +4334,23 @@ class FabrikFEModelList extends JModelForm
 					}
 				}
 			}
+
+			// List prfilter properties
+			$elements = $this->getElements('filtername');
+			$afilterFields = (array) $params->get('filter-fields');
+			$afilterConditions = (array) $params->get('filter-conditions');
+			$afilterValues = (array) $params->get('filter-value');
+			$afilterAccess = (array) $params->get('filter-access');
+			$afilterEval = (array) $params->get('filter-eval');
+			$afilterJoins = (array) $params->get('filter-join');
+			$afilterGrouped = (array) $params->get('filter-grouped');
+
 			/* If we are rendering as a module dont pick up the menu item options (parmas already set in list module)
 			 * so first statement when rendenering a module, 2nd when posting to the component from a module.
-			 */
+			*/
 			if (!strstr($this->getRenderContext(), 'mod_fabrik_list') && $moduleid === 0)
 			{
-				$properties = FabrikWorker::getMenuOrRequestVar('prefilters', '');
+				$properties = FabrikWorker::getMenuOrRequestVar('prefilters', '', $this->isMambot);
 			}
 			if (isset($properties))
 			{
@@ -4087,22 +4358,14 @@ class FabrikFEModelList extends JModelForm
 				$conditions = (array) $prefilters['filter-conditions'];
 				if (!empty($conditions))
 				{
-					$params->set('filter-fields', JArrayHelper::getValue($prefilters, 'filter-fields'));
-					$params->set('filter-conditions', JArrayHelper::getValue($prefilters, 'filter-conditions'));
-					$params->set('filter-value', JArrayHelper::getValue($prefilters, 'filter-value'));
-					$params->set('filter-access', JArrayHelper::getValue($prefilters, 'filter-access'));
-					$params->set('filter-eval', JArrayHelper::getValue($prefilters, 'filter-eval', ''));
-					$params->set('filter-join', JArrayHelper::getValue($prefilters, 'filter-join', ''));
+					$afilterFields = JArrayHelper::getValue($prefilters, 'filter-fields', array());
+					$afilterConditions = JArrayHelper::getValue($prefilters, 'filter-conditions', array());
+					$afilterValues = JArrayHelper::getValue($prefilters, 'filter-value', array());
+					$afilterAccess = JArrayHelper::getValue($prefilters, 'filter-access', array());
+					$afilterEval = JArrayHelper::getValue($prefilters, 'filter-eval', array());
+					$afilterJoins = JArrayHelper::getValue($prefilters, 'filter-join', array());
 				}
 			}
-			$elements = $this->getElements('filtername');
-			$afilterJoins = (array) $params->get('filter-join');
-			$afilterFields = (array) $params->get('filter-fields');
-			$afilterConditions = (array) $params->get('filter-conditions');
-			$afilterValues = (array) $params->get('filter-value');
-			$afilterAccess = (array) $params->get('filter-access');
-			$afilterEval = (array) $params->get('filter-eval');
-			$afilterGrouped = (array) $params->get('filter-grouped');
 			$join = 'WHERE';
 			$w = new FabrikWorker;
 			for ($i = 0; $i < count($afilterFields); $i++)
@@ -4142,8 +4405,8 @@ class FabrikFEModelList extends JModelForm
 
 					// Start logging...
 					JLog::add(
-						'A prefilter has been set up on an unpublished element, and will not be applied:' . FabrikString::safeColName($tmpfilter),
-						JLog::NOTICE, 'com_fabrik');
+					'A prefilter has been set up on an unpublished element, and will not be applied:' . FabrikString::safeColName($tmpfilter),
+					JLog::NOTICE, 'com_fabrik');
 					continue;
 				}
 				$filters['join'][] = $join;
@@ -4179,10 +4442,13 @@ class FabrikFEModelList extends JModelForm
 
 	public function getTotalRecords()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+
 		// $$$ rob ensure that the limits are set - otherwise can create monster query
 		$this->setLimits();
 		$session = JFactory::getSession();
-		$context = 'com_fabrik.list' . $this->getRenderContext() . '.total';
+		$context = 'com_' . $package . '.list' . $this->getRenderContext() . '.total';
 		if (isset($this->totalRecords))
 		{
 			$session->set($context, $this->totalRecords);
@@ -4264,7 +4530,7 @@ class FabrikFEModelList extends JModelForm
 			$this->nav->setId($this->getId());
 			$this->nav->showTotal = $params->get('show-total', false);
 			$item = $this->getTable();
-			$this->nav->startLimit = FabrikWorker::getMenuOrRequestVar('rows_per_page', $item->rows_per_page);
+			$this->nav->startLimit = FabrikWorker::getMenuOrRequestVar('rows_per_page', $item->rows_per_page, $this->isMambot);
 			$this->nav->showDisplayNum = $params->get('show_displaynum', true);
 		}
 		return $this->nav;
@@ -4286,25 +4552,25 @@ class FabrikFEModelList extends JModelForm
 		$table = $this->getTable();
 		/* $$$ rob @todo - do we need to add the join in here as well?
 		 * added + 1 as with 4 records to show 3 4th was not shown
-		 */
+		*/
 		$query = $db->getQuery(true);
 		$query->select('FLOOR(RAND() * COUNT(*) + 1) AS ' . $db->quoteName('offset'))->from($db->quoteName($table->db_table_name));
 		$query = $this->_buildQueryWhere($query);
 		$db->setQuery($query);
 		/* $db
-		    ->setQuery(
-		        'SELECT FLOOR(RAND() * COUNT(*) + 1) AS ' . $db->quoteName('offset') . ' FROM ' . $db->quoteName($table->db_table_name) . ' '
-		            . $this->_buildQueryWhere()); */
+		 ->setQuery(
+		 		'SELECT FLOOR(RAND() * COUNT(*) + 1) AS ' . $db->quoteName('offset') . ' FROM ' . $db->quoteName($table->db_table_name) . ' '
+		 		. $this->_buildQueryWhere()); */
 		$limitstart = $db->loadResult();
 		/*$$$ rob 11/01/2011 cant do this as we dont know what the total is yet
-		$$$ rob ensure that the limitstart + limit isn't greater than the total
+		 $$$ rob ensure that the limitstart + limit isn't greater than the total
 		if ($limitstart + $limit > $total) {
 		$limitstart = $total - $limit;
 		}
-		 $$$ rob 25/02/2011 if you only have say 3 reocrds then above random will show 1 2 or 3 records
-		 so decrease the random start num by the table row dispaly num
-		 going to favour records at the beginning of the table though
-		 */
+		$$$ rob 25/02/2011 if you only have say 3 reocrds then above random will show 1 2 or 3 records
+		so decrease the random start num by the table row dispaly num
+		going to favour records at the beginning of the table though
+		*/
 		$limitstart -= $table->rows_per_page;
 		if ($limitstart < 0)
 		{
@@ -4412,30 +4678,31 @@ class FabrikFEModelList extends JModelForm
 
 				// Select the required fields from the table.
 				$query
-					->select(
-						"db_table_name,
-					name, plugin, l.label AS listlabel, l.id as list_id, \n
-					el.id AS element_id, el.label AS element_label, f.id AS form_id,
-					el.params AS element_params");
+				->select(
+						"l.db_table_name,
+						el.name, el.plugin, l.label AS listlabel, l.id as list_id, \n
+						el.id AS element_id, el.label AS element_label, f.id AS form_id,
+						el.params AS element_params");
 				$query->from('#__{package}_elements AS el');
 				$query->join('LEFT', '#__{package}_formgroup AS fg ON fg.group_id = el.group_id');
 				$query->join('LEFT', '#__{package}_forms AS f ON f.id = fg.form_id');
 				$query->join('LEFT', '#__{package}_lists AS l ON l.form_id = f.id');
-				$query->where('el.published = 1');
+				$query->join('LEFT', '#__{package}_groups AS g ON g.id = fg.group_id');
+				$query->where('el.published = 1 AND g.published = 1');
 				$query
-					->where(
+				->where(
 						"(plugin = 'databasejoin' AND el.params like '%\"join_db_name\":\"" . $table->db_table_name
-							. "\"%'
-	  		AND el.params like  '%\"join_conn_id\":\"" . $table->connection_id . "%') OR (plugin = 'cascadingdropdown' AND \n"
-							. " el.params like '\"%cascadingdropdown_table\":\"" . $table->id . "\"%' \n"
-							. "AND el.params like '\"%cascadingdropdown_connection\":\"" . $table->connection_id . "\"%') ", "OR");
+						. "\"%'
+						AND el.params like  '%\"join_conn_id\":\"" . $table->connection_id . "%') OR (plugin = 'cascadingdropdown' AND \n"
+						. " el.params like '\"%cascadingdropdown_table\":\"" . $table->id . "\"%' \n"
+						. "AND el.params like '\"%cascadingdropdown_connection\":\"" . $table->connection_id . "\"%') ", "OR");
 
 				// Load in user element links as well
 				// $$$rob - not convinced this is a good idea
 				if ($usersConfig->get('user_elements_as_related_data', false) == true)
 				{
 					$query->where("(plugin = 'user' AND
-				 	el.params like '%\"join_conn_id\":\"" . $table->connection_id . "%\"' )", "OR");
+							el.params like '%\"join_conn_id\":\"" . $table->connection_id . "%\"' )", "OR");
 				}
 
 				$db->setQuery($query);
@@ -4555,10 +4822,10 @@ class FabrikFEModelList extends JModelForm
 		$app = JFactory::getApplication();
 		$params = $this->getParams();
 		/*
-		    if (!$this->getRequiredFiltersFound()) {
+		 if (!$this->getRequiredFiltersFound()) {
 		return true;
 		}
-		 */
+		*/
 		switch ($params->get('require-filter', 0))
 		{
 			case 0:
@@ -4575,7 +4842,7 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * have all the required filters been met?
+	 * Have all the required filters been met?
 	 *
 	 * @return  bool  true if they have if false we shouldnt show the table data
 	 */
@@ -4681,11 +4948,12 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
+	 * Get filters for display in html view
 	 *
-	 * @param   string  $container  list container
-	 * @param   string  $type       type
-	 * @param   string  $id         html id, only used if called from viz plugin
-	 * @param   string   $ref  js ref used when filters set for visualizations
+	 * @param   string  $container  List container
+	 * @param   string  $type       Type
+	 * @param   string  $id         Html id, only used if called from viz plugin
+	 * @param   string  $ref        Js ref used when filters set for visualizations
 	 *
 	 * @return array filters
 	 */
@@ -4714,18 +4982,18 @@ class FabrikFEModelList extends JModelForm
 	}
 
 	/**
-	 * Creates an array of html code for each filter
+	 * Creates an array of HTML code for each filter
 	 * Also adds in JS code to manage filters
 	 *
 	 * @param   string  $container  container
 	 * @param   string  $type       type listviz
 	 * @param   int     $id         html id, only used if called from viz plugin
-	 * @param   string  $ref  js filter ref, used when rendering filters for visualizations
+	 * @param   string  $ref        js filter ref, used when rendering filters for visualizations
 	 *
 	 * @return  array	of html code for each filter
 	 */
 
-	function &makeFilters($container = 'listform_1', $type = 'list', $id = '', $ref = '')
+	protected function &makeFilters($container = 'listform_1', $type = 'list', $id = '', $ref = '')
 	{
 		$aFilters = array();
 		$table = $this->getTable();
@@ -4733,13 +5001,15 @@ class FabrikFEModelList extends JModelForm
 		$opts->container = $container;
 		$opts->type = $type;
 		$opts->id = $type === 'list' ? $this->getId() : $id;
-		$opts->ref = $type === 'list' ? $this->getRenderContext() : $ref;
+		$opts->ref = $this->getRenderContext();
 		$opts->advancedSearch = $this->getAdvancedSearchOpts();
+		$opts->advancedSearch->controller = $type;
 		$opts = json_encode($opts);
 		$fscript = "
 		Fabrik.filter_{$container} = new FbListFilter($opts);\n";
 
 		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$filters = $this->getFilterArray();
 
 		$params = $this->getParams();
@@ -4749,8 +5019,9 @@ class FabrikFEModelList extends JModelForm
 			$requestKey = $this->getFilterModel()->getSearchAllRequestKey();
 			$v = $this->getFilterModel()->getSearchAllValue('html');
 			$o = new stdClass;
+			$class = FabrikWorker::j3() ? 'fabrik_filter search-query input-medium' : 'fabrik_filter';
 			$o->filter = '<input type="search" size="20" placeholder="' . JText::_('COM_FABRIK_SEARCH') . '" value="' . $v
-				. '" class="fabrik_filter" name="' . $requestKey . '" />';
+			. '" class="' . $class . '" name="' . $requestKey . '" />';
 			if ($params->get('search-mode-advanced') == 1)
 			{
 				$opts = array();
@@ -4758,9 +5029,9 @@ class FabrikFEModelList extends JModelForm
 				$opts[] = JHTML::_('select.option', 'any', JText::_('COM_FABRIK_ANY_OF_THESE_TERMS'));
 				$opts[] = JHTML::_('select.option', 'exact', JText::_('COM_FABRIK_EXACT_TERMS'));
 				$opts[] = JHTML::_('select.option', 'none', JText::_('COM_FABRIK_NONE_OF_THESE_TERMS'));
-				$mode = $app->getUserStateFromRequest('com_fabrik.list' . $this->getRenderContext() . '.searchallmode', 'search-mode-advanced');
+				$mode = $app->getUserStateFromRequest('com_' . $package . '.list' . $this->getRenderContext() . '.searchallmode', 'search-mode-advanced');
 				$o->filter .= '&nbsp;'
-					. JHTML::_('select.genericList', $opts, 'search-mode-advanced', "class='fabrik_filter'", 'value', 'text', $mode);
+						. JHTML::_('select.genericList', $opts, 'search-mode-advanced', "class='fabrik_filter'", 'value', 'text', $mode);
 			}
 			$o->name = 'all';
 			$o->label = $params->get('search-all-label', JText::_('COM_FABRIK_ALL'));
@@ -4769,8 +5040,8 @@ class FabrikFEModelList extends JModelForm
 		$counter = 0;
 		/* $$$ hugh - another one of those weird ones where if we use = the foreach loop
 		 * will sometimes skip a group
-		 * $groups = $this->getFormGroupElementData();
-		 */
+		* $groups = $this->getFormGroupElementData();
+		*/
 		$groups = $this->getFormGroupElementData();
 		foreach ($groups as $groupModel)
 		{
@@ -4783,15 +5054,15 @@ class FabrikFEModelList extends JModelForm
 
 				/*$$ rob added as some filter_types were null, have to double check that this doesnt
 				 * mess with showing the readonly values from search forms
-				 */
+				*/
 				if (isset($element->filter_type) && $element->filter_type <> '' && $element->filter_type != 'null')
 				{
 					if ($elementModel->canView() && $elementModel->canUseFilter())
 					{
 						/* $$$ rob in facted browsing somehow (not sure how!) some elements from the facted table get inserted into elementModels
 						 * with their form id set - so test if its been set and if its not the same as the current form id
-						 * if so then ignore
-						 */
+						* if so then ignore
+						*/
 						if (isset($element->form_id) && (int) $element->form_id !== 0 && $element->form_id !== $this->getFormModel()->getId())
 						{
 							continue;
@@ -4804,14 +5075,14 @@ class FabrikFEModelList extends JModelForm
 						$fscript .= $elementModel->filterJS(true, $container);
 						$o->required = $elementModel->getParams()->get('filter_required');
 						$o->label = $elementModel->getParams()->get('alt_list_heading') == '' ? $element->label
-							: $elementModel->getParams()->get('alt_list_heading');
+						: $elementModel->getParams()->get('alt_list_heading');
 						$aFilters[] = $o;
 						$counter++;
 					}
 				}
 			}
 		}
-		$fscript .= "Fabrik.filter_{$container}.update();\n";
+		$fscript .= 'Fabrik.filter_' . $container . ".update();\n";
 		$this->filterJs = $fscript;
 
 		// Check for search form filters - if they exists create hidden elements for them
@@ -4824,8 +5095,8 @@ class FabrikFEModelList extends JModelForm
 				$o = new stdClass;
 				/* $$$ rob - we are now setting read only filters 'filter' var to the elements read only
 				 * label for the passed in filter value
-				 *$o->filter = $value;
-				 */
+				*$o->filter = $value;
+				*/
 				$elementModel = $this->getFormModel()->getElement(str_replace('`', '', $key));
 				$o->filter = $filters['filter'][$i];
 				if ($elementModel)
@@ -4850,12 +5121,16 @@ class FabrikFEModelList extends JModelForm
 	public function getAdvancedSearchLink()
 	{
 		$params = $this->getParams();
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		if ($params->get('advanced-filter', '0'))
 		{
 			$table = $this->getTable();
 			$tmpl = $this->getTmpl();
-			$url = COM_FABRIK_LIVESITE . 'index.php?option=com_fabrik&amp;view=list&amp;layout=_advancedsearch&amp;tmpl=component&amp;listid='
-				. $table->id . '&amp;nextview=' . JRequest::getVar('view');
+			$url = COM_FABRIK_LIVESITE . 'index.php?option=com_' . $package . '&amp;view=list&amp;layout=_advancedsearch&amp;tmpl=component&amp;listid='
+					. $table->id . '&amp;nextview=' . JRequest::getVar('view', 'list');
+
+			$url .= '&amp;tkn=' . JSession::getFormToken();
 			$title = '<span>' . JText::_('COM_FABRIK_ADVANCED_SEARCH') . '</span>';
 			$opts = array('alt' => JText::_('COM_FABRIK_ADVANCED_SEARCH'), 'class' => 'fabrikTip', 'opts' => "{notice:true}", 'title' => $title);
 			$img = FabrikHelperHTML::image('find.png', 'list', $tmpl, $opts);
@@ -4876,16 +5151,23 @@ class FabrikFEModelList extends JModelForm
 
 	public function getAdvancedSearchOpts()
 	{
-		$list = $this->getTable();
+		$params = $this->getParams();
 		$opts = new stdClass;
+
+		// $$$ rob - 20/208/2012 if list advanced search off return nothing
+		if ($params->get('advanced-filter') == 0)
+		{
+			return $opts;
+		}
+		$list = $this->getTable();
 		$listRef = $this->getRenderContext();
 		$opts->conditionList = FabrikHelperHTML::conditonList($listRef, '');
 		list($fieldNames, $firstFilter) = $this->getAdvancedSearchElementList();
 		$statements = $this->getStatementsOpts();
 		$opts->elementList = JHTML::_('select.genericlist', $fieldNames, 'fabrik___filter[list_' . $listRef . '][key][]',
-			'class="inputbox key" size="1" ', 'value', 'text');
+				'class="inputbox key" size="1" ', 'value', 'text');
 		$opts->statementList = JHTML::_('select.genericlist', $statements, 'fabrik___filter[list_' . $listRef . '][condition][]',
-			'class="inputbox" size="1" ', 'value', 'text');
+				'class="inputbox" size="1" ', 'value', 'text');
 		$opts->listid = $list->id;
 		$opts->listref = $listRef;
 		$opts->ajax = $this->isAjax();
@@ -4894,7 +5176,7 @@ class FabrikFEModelList extends JModelForm
 		$arr = array();
 		foreach ($elements as $e)
 		{
-			$key = FabrikString::safeColName($e->getFullName(false, false, false));
+			$key = $e->getFilterFullName();
 			$arr[$key] = array('id' => $e->getId(), 'plugin' => $e->getElement()->plugin);
 		}
 		$opts->elementMap = $arr;
@@ -4919,7 +5201,7 @@ class FabrikFEModelList extends JModelForm
 			$elParams = $elementModel->getParams();
 			if ($elParams->get('inc_in_adv_search', 1))
 			{
-				$elName = FabrikString::safeColName($elementModel->getFullName(false, false, false));
+				$elName = $elementModel->getFilterFullName();
 				if (!$first)
 				{
 					$first = true;
@@ -4971,7 +5253,7 @@ class FabrikFEModelList extends JModelForm
 				{
 					if (array_key_exists($k, $advanced))
 					{
-						$advanced[$k][] = $filters[$k][$i];
+						$advanced[$k][] = JArrayHelper::getValue($filters[$k], $i, '');
 					}
 					else
 					{
@@ -5073,7 +5355,7 @@ class FabrikFEModelList extends JModelForm
 				$key = JHTML::_('select.genericlist', $fieldNames, $prefix . 'key][]', 'class="inputbox key" size="1" ', 'value', 'text', $key);
 				$jsSel = JHTML::_('select.genericlist', $statements, $prefix . 'condition][]', 'class="inputbox" size="1" ', 'value', 'text', $jsSel);
 				$rows[] = array('join' => $join, 'element' => $key, 'condition' => $jsSel, 'filter' => $filter, 'type' => $type,
-					'grouped' => $grouped);
+						'grouped' => $grouped);
 				$counter++;
 			}
 		}
@@ -5084,7 +5366,7 @@ class FabrikFEModelList extends JModelForm
 			$key = JHTML::_('select.genericlist', $fieldNames, $prefix . 'key][]', 'class="inputbox key" size="1" ', 'value', 'text', '');
 			$jsSel = JHTML::_('select.genericlist', $statements, $prefix . 'condition][]', 'class="inputbox" size="1" ', 'value', 'text', '');
 			$rows[] = array('join' => $join, 'element' => $key, 'condition' => $jsSel, 'filter' => $firstFilter, 'type' => $type,
-				'grouped' => $grouped);
+					'grouped' => $grouped);
 		}
 		$this->advancedSearchRows = $rows;
 		return $rows;
@@ -5106,8 +5388,8 @@ class FabrikFEModelList extends JModelForm
 		$this->_temp_db_key_addded = false;
 		/* $$$ rob if no fields specified presume we are requesting CSV file from URL and return
 		 * all fields otherwise set the fields to be those selected in fabrik window
-		 * or defined in the lists csv export settings
-		 */
+		* or defined in the lists csv export settings
+		*/
 		if (!empty($headings))
 		{
 			foreach ($headings as $name => $val)
@@ -5124,7 +5406,7 @@ class FabrikFEModelList extends JModelForm
 					foreach ($asfields as $f)
 					{
 						if ((strstr($f, $db->quoteName($name)) || strstr($f, $db->quoteName($name . '_raw'))
-							|| ($elModel->isJoin() && strstr($f, $pName))))
+								|| ($elModel->isJoin() && strstr($f, $pName))))
 						{
 							$newfields[] = $f;
 						}
@@ -5146,6 +5428,8 @@ class FabrikFEModelList extends JModelForm
 
 	public function getHeadings()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$item = $this->getTable();
 		$item->order_dir = JString::strtolower($item->order_dir);
 		$aTableHeadings = array();
@@ -5164,7 +5448,7 @@ class FabrikFEModelList extends JModelForm
 		$listels = json_decode($params->get('list_elements'));
 
 		$showInList = array();
-		$listels = json_decode(FabrikWorker::getMenuOrRequestVar('list_elements', ''));
+		$listels = json_decode(FabrikWorker::getMenuOrRequestVar('list_elements', '', $this->isMambot));
 
 		// $$$ rob check if empty or if a single empty value was set in the menu/module params
 		if (isset($listels->show_in_list) && !(count($listels->show_in_list) === 1 && $listels->show_in_list[0] == ''))
@@ -5176,7 +5460,7 @@ class FabrikFEModelList extends JModelForm
 		// Set it for use by groupModel->getPublishedListElements()
 		JRequest::setVar('fabrik_show_in_list', $showInList);
 
-		if (!in_array($this->_outPutFormat, array('pdf', 'csv')))
+		if (!in_array($this->outPutFormat, array('pdf', 'csv')))
 		{
 			if ($this->canSelectRows() && $params->get('checkboxLocation', 'end') !== 'end')
 			{
@@ -5193,6 +5477,11 @@ class FabrikFEModelList extends JModelForm
 			$groupHeadingKey = $w->parseMessageForPlaceHolder($groupModel->getGroup()->label, array(), false);
 			$groupHeadings[$groupHeadingKey] = 0;
 			$elementModels = $groupModel->getPublishedListElements();
+
+			if ($groupModel->canView() === false)
+			{
+				continue;
+			}
 			foreach ($elementModels as $key => $elementModel)
 			{
 				$element = $elementModel->getElement();
@@ -5214,9 +5503,9 @@ class FabrikFEModelList extends JModelForm
 					$label = $element->label;
 				}
 				$label = $w->parseMessageForPlaceHolder($label, array());
-				if ($elementParams->get('can_order') == '1' && $this->_outPutFormat != 'csv')
+				if ($elementParams->get('can_order') == '1' && $this->outPutFormat != 'csv')
 				{
-					$context = 'com_fabrik.list' . $this->getRenderContext() . '.order.' . $element->id;
+					$context = 'com_' . $package . '.list' . $this->getRenderContext() . '.order.' . $element->id;
 					$orderDir = $session->get($context);
 					$class = "";
 					$currentOrderDir = $orderDir;
@@ -5276,7 +5565,7 @@ class FabrikFEModelList extends JModelForm
 			$headingClass = $this->removeHeadingCompositKey($headingClass);
 			$cellClass = $this->removeHeadingCompositKey($cellClass);
 		}
-		if (!in_array($this->_outPutFormat, array('pdf', 'csv')))
+		if (!in_array($this->outPutFormat, array('pdf', 'csv')))
 		{
 			// @TODO check if any plugins need to use the selector as well!
 			if ($this->canSelectRows() && $params->get('checkboxLocation', 'end') === 'end')
@@ -5290,7 +5579,7 @@ class FabrikFEModelList extends JModelForm
 			{
 				$this->actionHeading($aTableHeadings, $headingClass, $cellClass);
 			}
-			// Create columns containing links which point to tables associated with this table
+			// Create columns containing links which point to lists associated with this list
 			$factedlinks = $params->get('factedlinks');
 			$joinsToThisKey = $this->getJoinsToThisKey();
 			$f = 0;
@@ -5310,7 +5599,7 @@ class FabrikFEModelList extends JModelForm
 						$prefix = $join->element_id . '___' . $linkedTable;
 						$aTableHeadings[$prefix . "_list_heading"] = empty($heading) ? $join->listlabel . ' ' . JText::_('COM_FABRIK_LIST') : $heading;
 						$headingClass[$prefix . "_list_heading"] = array('class' => 'fabrik_ordercell ' . $prefix . '_list_heading related',
-							'style' => '');
+								'style' => '');
 						$cellClass[$prefix . "_list_heading"] = array('class' => $prefix . '_list_heading fabrik_element related');
 					}
 				}
@@ -5332,7 +5621,7 @@ class FabrikFEModelList extends JModelForm
 					$prefix = $join->db_table_name . '___' . $join->name;
 					$aTableHeadings[$prefix . '_form_heading'] = empty($heading) ? $join->listlabel . ' ' . JText::_('COM_FABRIK_FORM') : $heading;
 					$headingClass[$prefix . '_form_heading'] = array('class' => 'fabrik_ordercell ' . $prefix . '_form_heading related',
-						'style' => '');
+							'style' => '');
 					$cellClass[$prefix . '_form_heading'] = array('class' => $prefix . '_form_heading fabrik_element related');
 				}
 				$f++;
@@ -5363,9 +5652,9 @@ class FabrikFEModelList extends JModelForm
 
 	protected function actionHeading(&$aTableHeadings, &$headingClass, &$cellClass)
 	{
-		// 3.0 actions now go in one column
-		if ($this->actionHeading == true)
+		if ($this->canSelectRows() || $this->canViewDetails() || $this->canEdit())
 		{
+			// 3.0 actions now go in one column
 			$pluginManager = FabrikWorker::getPluginManager();
 			$headingButtons = array();
 			if ($this->deletePossible())
@@ -5378,7 +5667,9 @@ class FabrikFEModelList extends JModelForm
 			{
 				$r = '<li>' . $r . '</li>';
 			}
+
 			$headingButtons = array_merge($headingButtons, $res);
+
 			$aTableHeadings['fabrik_actions'] = empty($headingButtons) ? '' : '<ul class="fabrik_action">' . implode("\n", $headingButtons) . '</ul>';
 			$headingClass['fabrik_actions'] = array('class' => 'fabrik_ordercell fabrik_actions', 'style' => '');
 
@@ -5419,29 +5710,37 @@ class FabrikFEModelList extends JModelForm
 	{
 		/* $$$ hugh - horrible hack, but if we just ksort as-is, once we have more than 9 elements,
 		 * it'll start sort 0,1,10,11,2,3 etc.  There's no doubt a cleaner way to do this,
-		 * but for now ... rekey with a 0 padded prefix before we ksort
-		 */
+		* but for now ... rekey with a 0 padded prefix before we ksort
+		*/
 		foreach ($arr as $key => $val)
 		{
-			list($part1, $part2) = explode(':', $key);
-			$part1 = sprintf('%03d', $part1);
-			$newkey = $part1 . ':' . $part2;
-			$arr[$newkey] = $arr[$key];
-			unset($arr[$key]);
+			if (strstr($key, ':'))
+			{
+				list($part1, $part2) = explode(':', $key);
+				$part1 = sprintf('%03d', $part1);
+				$newkey = $part1 . ':' . $part2;
+				$arr[$newkey] = $arr[$key];
+				unset($arr[$key]);
+			}
 		}
 		ksort($arr);
 		foreach ($arr as $key => $val)
 		{
-			$bits = explode(':', $key);
-			$newkey = array_pop($bits);
-			$arr[$newkey] = $arr[$key];
-			unset($arr[$key]);
+			if (strstr($key, ':'))
+			{
+				$bits = explode(':', $key);
+				$newkey = array_pop($bits);
+				$arr[$newkey] = $arr[$key];
+				unset($arr[$key]);
+			}
 		}
 		return $arr;
 	}
 
 	/**
 	 * Can the user select the specified row
+	 *
+	 * Needs to return true to insert a checkbox in the row.
 	 *
 	 * @param   object  $row  row of list data
 	 *
@@ -5461,7 +5760,8 @@ class FabrikFEModelList extends JModelForm
 			return true;
 		}
 		$params = $this->getParams();
-		if ($params->get('actionMethod') == 'floating' && ($this->canAdd() || $this->canEdit($row) || $this->canView($row)))
+		$actionMethod = $this->actionMethod();
+		if ($actionMethod == 'floating' && ($this->canEdit($row) || $this->canViewDetails($row)))
 		{
 			return true;
 		}
@@ -5482,8 +5782,10 @@ class FabrikFEModelList extends JModelForm
 
 	/**
 	 * Can the user select ANY row?
+	 *
+	 * Should the checkbox be shown in the list
 	 * If you can delete then true returned, if not then check
-	 * available table plugins to see if they allow for row selection
+	 * available list plugins to see if they allow for row selection
 	 * if so a checkbox column appears in the table
 	 *
 	 * @return  bool
@@ -5495,17 +5797,19 @@ class FabrikFEModelList extends JModelForm
 		{
 			return $this->canSelectRows;
 		}
-		if ($this->canDelete())
+		$actionMethod = $this->actionMethod();
+		if ($this->canDelete() || ($this->canEditARow() && $actionMethod === 'floating') || $this->deletePossible())
 		{
 			$this->canSelectRows = true;
 			return $this->canSelectRows;
 		}
 		$params = $this->getParams();
-		if ($params->get('actionMethod') == 'floating' && ($this->canAdd() || $this->canEdit() || $this->canView()))
+		if ($actionMethod == 'floating' && ($this->canEdit() || $this->canViewDetails()))
 		{
+			$this->canSelectRows = true;
 			return true;
 		}
-		$usedPlugins = (array) $params->get('plugin');
+		$usedPlugins = (array) $params->get('plugins');
 		if (empty($usedPlugins))
 		{
 			$this->canSelectRows = false;
@@ -5703,8 +6007,6 @@ class FabrikFEModelList extends JModelForm
 				}
 			}
 		}
-		echo "joins to process keys = ";
-		print_r(array_keys($this->_joinsToProcess));
 		return $this->_joinsToProcess;
 	}
 
@@ -5750,6 +6052,8 @@ class FabrikFEModelList extends JModelForm
 
 	public function storeRow($data, $rowId, $isJoin = false, $joinGroupTable = null)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$origRowId = $rowId;
 
 		// Don't save a record if no data collected
@@ -5774,13 +6078,13 @@ class FabrikFEModelList extends JModelForm
 			$group = $groupModel->getGroup();
 			/*
 			 * $$$rob this following if statement avoids this scenario from happening:
-			 * you have a form with joins to two other tables
-			 * each joined group has a field called 'password'
-			 * first group's password is set to password plugin, second to field
-			 * on update if no password entered for first field data should not be updated as recordInDatabase() return false
-			 * however, as we were iterating over all groups, the 2nd password field's data is used instead!
-			 * this if statement ensures we only look at the correct group
-			 */
+			* you have a form with joins to two other tables
+			* each joined group has a field called 'password'
+			* first group's password is set to password plugin, second to field
+			* on update if no password entered for first field data should not be updated as recordInDatabase() return false
+			* however, as we were iterating over all groups, the 2nd password field's data is used instead!
+			* this if statement ensures we only look at the correct group
+			*/
 			if ($isJoin == false || $group->id == $joinGroupTable->id)
 			{
 				if (($isJoin && $groupModel->isJoin()) || (!$isJoin && !$groupModel->isJoin()))
@@ -5795,13 +6099,6 @@ class FabrikFEModelList extends JModelForm
 						// For radio buttons and dropdowns otherwise nothing is stored for them??
 						$postkey = array_key_exists($key . '_raw', $data) ? $key . '_raw' : $key;
 
-						/* If the user cant use or view dont update this element's value
-						 * read only data should be added in addDefaultDataFromRO
-						 */
-						if (!$elementModel->canUse() && !$elementModel->canView() && !$formModel->updatedByPlugin($fullkey))
-						{
-							continue;
-						}
 						// @TODO similar check (but not quiet the same performed in formModel _removeIgnoredData() - should merge into one place
 						if ($elementModel->recordInDatabase($data))
 						{
@@ -5829,8 +6126,11 @@ class FabrikFEModelList extends JModelForm
 										$val = stripslashes($val);
 									}
 								}
-								$oRecord->$key = $val;
-								$aBindData[$key] = $val;
+								if (!$elementModel->dataIsNull($data, $val))
+								{
+									$oRecord->$key = $val;
+									$aBindData[$key] = $val;
+								}
 
 								if ($elementModel->isJoin() && $isJoin && array_key_exists('params', $data))
 								{
@@ -5845,7 +6145,7 @@ class FabrikFEModelList extends JModelForm
 				}
 			}
 		}
-		$this->_addDefaultDataFromRO($aBindData, $oRecord, $isJoin, $rowId, $joinGroupTable);
+
 		$primaryKey = FabrikString::shortColName($this->getTable()->db_primary_key);
 
 		if ($rowId != '' && $c == 1 && $lastKey == $primaryKey)
@@ -5854,8 +6154,8 @@ class FabrikFEModelList extends JModelForm
 		}
 		/*
 		 * $$$ rob - correct rowid is now inserted into the form's rowid hidden field
-		 * even when useing usekey and -1, we just need to check if we are adding a new record and if so set rowid to 0
-		 */
+		* even when useing usekey and -1, we just need to check if we are adding a new record and if so set rowid to 0
+		*/
 		if (JRequest::getVar('usekey_newrecord', false))
 		{
 			$rowId = 0;
@@ -5865,12 +6165,12 @@ class FabrikFEModelList extends JModelForm
 		$primaryKey = str_replace("`", "", $primaryKey);
 
 		// $$$ hugh - if we do this, CSV importing can't maintain existing keys
-		if (!$this->_importingCSV)
+		if (!$this->importingCSV)
 		{
 			// If its a repeat group which is also the primary group $primaryKey was not set.
 			if ($primaryKey)
 			{
-				if (is_numeric($oRecord->$primaryKey))
+				if (isset($oRecord->$primaryKey) && is_numeric($oRecord->$primaryKey))
 				{
 					$oRecord->$primaryKey = $rowId;
 				}
@@ -5899,7 +6199,7 @@ class FabrikFEModelList extends JModelForm
 		else
 		{
 			// Clean the cache.
-			JFactory::getCache('com_fabrik')->clean();
+			JFactory::getCache('com_' . $package)->clean();
 
 			// $$$ rob new as if you update a record the insertid() returns 0
 			$this->lastInsertId = ($rowId == '' || $rowId == 0) ? $fabrikDb->insertid() : $rowId;
@@ -6024,6 +6324,8 @@ class FabrikFEModelList extends JModelForm
 	 *
 	 * @since	1.0.6
 	 *
+	 * @deprecated  since 3.0.7 - we should be using formmodel addEncrytedVarsToArray() only
+	 *
 	 * @return  void
 	 */
 
@@ -6039,9 +6341,9 @@ class FabrikFEModelList extends JModelForm
 		{
 			/* $$$ hugh FIXME - doesn't work for rowid=-1 / usekey submissions,
 			 * ends up querying "WHERE foo.userid = '<rowid>'" instead of <userid>
-			 * OK for now, as we should catch RO data from the encrypted vars check
-			 * later in this method.
-			 */
+			* OK for now, as we should catch RO data from the encrypted vars check
+			* later in this method.
+			*/
 			if (empty($rowid))
 			{
 				$this->_origData = $origdata = array();
@@ -6066,13 +6368,13 @@ class FabrikFEModelList extends JModelForm
 
 		/* $$$ hugh - seems like there's no point in doing this chunk if there is no
 		 $origdata to work with?  Not sure if there's ever a valid reason for doing so,
-		 but it certainly breaks things like onCopyRow(), where (for instance) user
-		 elements will get reset to 0 by this code.
-		 */
+		but it certainly breaks things like onCopyRow(), where (for instance) user
+		elements will get reset to 0 by this code.
+		*/
+		$repeatGroupCounts = JRequest::getVar('fabrik_repeat_group', array());
 		if (!empty($origdata))
 		{
 			$gcounter = 0;
-			$repeatGroupCounts = JRequest::getVar('fabrik_repeat_group', array());
 			foreach ($groups as $groupModel)
 			{
 				if (($isJoin && $groupModel->isJoin()) || (!$isJoin && !$groupModel->isJoin()))
@@ -6132,9 +6434,10 @@ class FabrikFEModelList extends JModelForm
 		// Check crypted querystring vars (encrypted in form/view.html.php ) _cryptQueryString
 		if (array_key_exists('fabrik_vars', $_REQUEST) && array_key_exists('querystring', $_REQUEST['fabrik_vars']))
 		{
-			$crypt = new JSimpleCrypt();
+			$crypt = new JSimpleCrypt;
 			foreach ($_REQUEST['fabrik_vars']['querystring'] as $key => $encrypted)
 			{
+
 				// $$$ hugh - allow submission plugins to override RO data
 				// TODO - test this for joined data
 				if ($formModel->updatedByPlugin($key))
@@ -6142,19 +6445,42 @@ class FabrikFEModelList extends JModelForm
 					continue;
 				}
 				$key = FabrikString::shortColName($key);
+
 				/* $$$ hugh - trying to fix issue where encrypted elements from a main group end up being added to
 				 * a joined group's field list for the update/insert on the joined row(s).
-				 */
-				if (!array_key_exists($key, $data))
-				{
-					continue;
-				}
+				*/
+				/*
+				 * $$$ rob - commenting it out as this was stopping data that was not viewable or editable from being included
+				* in $data. New test added inside foreach loop below
+				**/
+				/* if (!array_key_exists($key, $data))
+				 {
+				continue;
+				} */
 				foreach ($groups as $groupModel)
 				{
+					// New test to replace if (!array_key_exists($key, $data))
+					// $$$ hugh - this stops elements from joined groups being added to main row, but see 'else'
+					if ($isJoin)
+					{
+						if ($groupModel->getGroup()->id != $joinGroupTable->id)
+						{
+							continue;
+						}
+					}
+					else
+					{
+						// $$$ hugh - need test here if not $isJoin, to stop keys from joined groups being added to main row!
+						if ($groupModel->isJoin())
+						{
+							continue;
+						}
+					}
 					$elementModels = $groupModel->getPublishedElements();
 					foreach ($elementModels as $elementModel)
 					{
 						$element = $elementModel->getElement();
+						// $$$ hugh - I have a feeling this test is a Bad Thing <tm> as it is using short keys, so if two joined groups share the same element name(s) ...
 						if ($element->name == $key)
 						{
 							// Don't overwrite if something has been entered
@@ -6163,29 +6489,37 @@ class FabrikFEModelList extends JModelForm
 							// if (!$elementModel->canUse() && $elementModel->canView()) {
 							if (!$elementModel->canUse())
 							{
-								// Repeat groups no join:
-								if (is_array($encrypted))
+								// Repeat groups
+								$default = array();
+								$repeatGroupCount = JArrayHelper::getValue($repeatGroupCounts, $groupModel->getGroup()->id);
+								for ($repeatCount = 0; $repeatCount < $repeatGroupCount; $repeatCount++)
 								{
-									$v = array();
-									foreach ($encrypted as $e)
+									$enc = JArrayHelper::getValue($encrypted, $repeatCount);
+
+									if (is_array($enc))
 									{
-										$e = urldecode($e);
-										$v[] = empty($e) ? '' : $crypt->decrypt($e);
+										$v = array();
+										foreach ($enc as $e)
+										{
+											$e = urldecode($e);
+											$v[] = empty($e) ? '' : $crypt->decrypt($e);
+										}
+										$v = json_encode($v);
 									}
-									$v = json_encode($v);
-								}
-								else
-								{
-									$encrypted = urldecode($encrypted);
-									$v = !empty($encrypted) ? $crypt->decrypt($encrypted) : '';
+									else
+									{
+										$enc = urldecode($enc);
+										$v = !empty($enc) ? $crypt->decrypt($enc) : '';
+									}
+
 								}
 
 								/* $$$ hugh - also gets called in storeRow(), not sure if we really need to
 								 * call it here?  And if we do, then we should probably be calling onStoreRow
-								 * as well, if $data['fabrik_copy_from_table'] is set?  Can't remember why,
-								 * but we differentiate between the two, with onCopyRow being when a row is copied
-								 * using the list plugin, and onSaveAsCopy when the form plugin is used.
-								 */
+								* as well, if $data['fabrik_copy_from_table'] is set?  Can't remember why,
+								* but we differentiate between the two, with onCopyRow being when a row is copied
+								* using the list plugin, and onSaveAsCopy when the form plugin is used.
+								*/
 								if ($copy)
 								{
 									$v = $elementModel->onSaveAsCopy($v);
@@ -6209,8 +6543,24 @@ class FabrikFEModelList extends JModelForm
 
 	public function doCalculations()
 	{
+		$cache = FabrikWorker::getCache();
+		$cache->call(array(get_class($this), 'cacheDoCalculations'), $this->getId());
+	}
+
+	/**
+	 * Cache do calculations
+	 *
+	 * @param   int  $listId  List id
+	 *
+	 * @return  void
+	 */
+
+	public static function cacheDoCalculations($listId)
+	{
+		$listModel = JModel::getInstance('List', 'FabrikFEModel');
+		$listModel->setId($listId);
 		$db = FabrikWorker::getDbo();
-		$formModel = $this->getFormModel();
+		$formModel = $listModel->getFormModel();
 		$groups = $formModel->getGroupsHiarachy();
 		foreach ($groups as $groupModel)
 		{
@@ -6222,35 +6572,35 @@ class FabrikFEModelList extends JModelForm
 				$update = false;
 				if ($params->get('sum_on', 0) == 1)
 				{
-					$aSumCals = $elementModel->sum($this);
+					$aSumCals = $elementModel->sum($listModel);
 					$params->set('sum_value_serialized', serialize($aSumCals[1]));
 					$params->set('sum_value', $aSumCals[0]);
 					$update = true;
 				}
 				if ($params->get('avg_on', 0) == 1)
 				{
-					$aAvgCals = $elementModel->avg($this);
+					$aAvgCals = $elementModel->avg($listModel);
 					$params->set('avg_value_serialized', serialize($aAvgCals[1]));
 					$params->set('avg_value', $aAvgCals[0]);
 					$update = true;
 				}
 				if ($params->get('median_on', 0) == 1)
 				{
-					$medians = $elementModel->median($this);
+					$medians = $elementModel->median($listModel);
 					$params->set('median_value_serialized', serialize($medians[1]));
 					$params->set('median_value', $medians[0]);
 					$update = true;
 				}
 				if ($params->get('count_on', 0) == 1)
 				{
-					$aCountCals = $elementModel->count($this);
+					$aCountCals = $elementModel->count($listModel);
 					$params->set('count_value_serialized', serialize($aCountCals[1]));
 					$params->set('count_value', $aCountCals[0]);
 					$update = true;
 				}
 				if ($params->get('custom_calc_on', 0) == 1)
 				{
-					$aCustomCalcCals = $elementModel->custom_calc($this);
+					$aCustomCalcCals = $elementModel->custom_calc($listModel);
 					$params->set('custom_calc_value_serialized', serialize($aCustomCalcCals[1]));
 					$params->set('custom_calc_value', $aCustomCalcCals[0]);
 					$update = true;
@@ -6284,7 +6634,7 @@ class FabrikFEModelList extends JModelForm
 	 * @return  void
 	 */
 
-	function setConnectionId($id)
+	public function setConnectionId($id)
 	{
 		$this->getTable()->connection_id = $id;
 	}
@@ -6297,9 +6647,33 @@ class FabrikFEModelList extends JModelForm
 
 	public function getGroupBy()
 	{
-		$table = $this->getTable();
-		$groupBy = JRequest::getVar('group_by', $table->group_by);
-		return ($groupBy == '0') ? '' : $groupBy;
+		$elementModel = $this->getGroupByElement();
+		if (!$elementModel)
+		{
+			return '';
+		}
+		return $elementModel->getFullName(false, true, false);
+	}
+
+	/**
+	 * Get the element ids for list odering
+	 *
+	 * @since  3.0.7
+	 *
+	 * @return  array  element ids
+	 */
+
+	public function getOrderBys()
+	{
+		$item = $this->getTable();
+		$orderBys = FabrikWorker::JSONtoData($item->order_by, true);
+		$formModel = $this->getFormModel();
+		foreach ($orderBys as &$orderBy)
+		{
+			$elementModel = $formModel->getElement($orderBy, true);
+			$orderBy = $elementModel ? $elementModel->getId() : '';
+		}
+		return $orderBys;
 	}
 
 	/**
@@ -6411,8 +6785,7 @@ class FabrikFEModelList extends JModelForm
 				}
 				else
 				{
-					// $$$ hugh - if we never find a PRI, it may be a view, and we'll need this
-					// info in the Hail Mary.
+					// $$$ hugh - if we never find a PRI, it may be a view, and we'll need this info in the Hail Mary.
 					$origColnamesByName[$colName] = $origColName;
 				}
 			}
@@ -6463,6 +6836,13 @@ class FabrikFEModelList extends JModelForm
 			$preSQL = $w->parseMessageForPlaceHolder($preSQL);
 			$db->setQuery($preSQL);
 			$q = $db->loadObjectList();
+			if (!$q)
+			{
+				// Try the table's connection db for the query
+				$thisDb = $this->getDb();
+				$thisDb->setQuery($preSQL);
+				$q = $thisDb->loadObjectList();
+			}
 			if (!empty($q))
 			{
 				$q = $q[0];
@@ -6497,8 +6877,14 @@ class FabrikFEModelList extends JModelForm
 		}
 		else
 		{
-			// Parse for default values only
-			$pattern = "/({[^}]+}).*}?/s";
+			/* Parse for default values only
+			 * $$$ hugh - this pattern is being greedy, so for example ...
+			 * foo {$my->id} bar {$my->id} gaprly
+			 * ... matches everyting from first to last brace, like ...
+			 * {$my->id} bar {$my->id}
+			 *$pattern = "/({[^}]+}).*}?/s";
+			 */
+			$pattern = "/({[^}]+})/";
 			for ($i = 0; $i < count($selValue); $i++)
 			{
 				$ok = preg_match($pattern, $selValue[$i], $matches);
@@ -6557,9 +6943,9 @@ class FabrikFEModelList extends JModelForm
 		}
 		/* $$$ hugh - @TODO $field is in 'table.element' format but $indexes
 		 * has Column_name as just 'element' ... so we're always rebuilding indexes!
-		 * I'm in the middle of fixing something else, must come back and fix this!!
-		 * OK, moved these two lines from below to here
-		 */
+		* I'm in the middle of fixing something else, must come back and fix this!!
+		* OK, moved these two lines from below to here
+		*/
 		$field = str_replace('_raw', '', $field);
 
 		// $$$ rob 29/03/2011 ensure its in tablename___elementname format
@@ -6585,7 +6971,7 @@ class FabrikFEModelList extends JModelForm
 		}
 		$this->dropIndex($field, $prefix, $type, $table);
 		$query = " ALTER TABLE " . $db->quoteName($table) . " ADD INDEX " . $db->quoteName("fb_{$prefix}_{$field}_{$type}") . " ("
-			. $db->quoteName($field) . " $size)";
+				. $db->quoteName($field) . " $size)";
 		$db->setQuery($query);
 		$db->query();
 	}
@@ -6676,7 +7062,7 @@ class FabrikFEModelList extends JModelForm
 				if ((int) $join->list_id !== 0)
 				{
 					$sql = "DELETE FROM " . $db->quoteName($join->table_join) . " WHERE " . $db->quoteName($join->table_join_key) . " IN (" . $val
-						. ")";
+					. ")";
 					$db->setQuery($sql);
 					$db->query();
 				}
@@ -6729,17 +7115,17 @@ class FabrikFEModelList extends JModelForm
 		$this->_whereSQL['string'][true] = ' WHERE ' . $key . ' IN (' . $val . ')';
 		/* $$$ hugh - need to clear cached data, 'cos we called getTotalRecords from the controller, which now
 		 * calls getData(), and will have cached all rows on this page, not just the ones being deleted, which means
-		 * things like form and element onDelete plugins will get handed a whole page of rows, not just the ones
-		 * selected for delete!  Ooops.
-		 */
+		* things like form and element onDelete plugins will get handed a whole page of rows, not just the ones
+		* selected for delete!  Ooops.
+		*/
 		unset($this->_data);
 		$rows = $this->getData();
 
 		/* $$$ hugh - we need to check delete perms, see:
 		 * http://fabrikar.com/forums/showthread.php?p=102670#post102670
-		 * Short version, if user has access for a table plugin, they get a checkbox on the row, but may not have
-		 * delete access on that row.
-		 */
+		* Short version, if user has access for a table plugin, they get a checkbox on the row, but may not have
+		* delete access on that row.
+		*/
 		$removed_id = false;
 		foreach ($rows as &$group)
 		{
@@ -6794,11 +7180,11 @@ class FabrikFEModelList extends JModelForm
 
 		/* $$$ hugh - added onDeleteRowsForm plugin (needed it so fabrikjuser form plugin can delete users)
 		 * NOTE - had to call it onDeleteRowsForm rather than onDeleteRows, otherwise runPlugins() automagically
-		 * runs the element onDeleteRows(), which we already do above.  And with the code as-is, that won't work
-		 * from runPlugins() 'cos it won't pass it the $rows it needs.  So i have to sidestep the issue by using
-		 * a different trigger name.  Added a default onDeleteRowsForm() to plugin-form.php, and implemented
-		 * (and tested) user deletion in fabrikjuser.php using this trigger.  All seems to work.  7/28/2009
-		 */
+		* runs the element onDeleteRows(), which we already do above.  And with the code as-is, that won't work
+		* from runPlugins() 'cos it won't pass it the $rows it needs.  So i have to sidestep the issue by using
+		* a different trigger name.  Added a default onDeleteRowsForm() to plugin-form.php, and implemented
+		* (and tested) user deletion in fabrikjuser.php using this trigger.  All seems to work.  7/28/2009
+		*/
 
 		if (in_array(false, $pluginManager->runPlugins('onDeleteRowsForm', $this->getFormModel(), 'form', $rows)))
 		{
@@ -6972,13 +7358,13 @@ class FabrikFEModelList extends JModelForm
 	/**
 	 * Build a dropdown list of fileds
 	 *
-	 * @param   int     $cnnId           connection id to use
-	 * @param   string  $tbl             table to load fields for
-	 * @param   string  $incSelect       show "please select" top option
-	 * @param   bool    $incTableName    append field name values with table name
-	 * @param   string  $selectListName  name of drop down
-	 * @param   string  $selected        selected option
-	 * @param   string  $className       class name
+	 * @param   int     $cnnId           Connection id to use
+	 * @param   string  $tbl             Table to load fields for
+	 * @param   string  $incSelect       Show "please select" top option
+	 * @param   bool    $incTableName    Append field name values with table name
+	 * @param   string  $selectListName  Name of drop down
+	 * @param   string  $selected        Selected option
+	 * @param   string  $className       Class name
 	 *
 	 * @return  string	html to be added to DOM
 	 */
@@ -7022,11 +7408,13 @@ class FabrikFEModelList extends JModelForm
 	{
 		$app = JFactory::getApplication();
 		$link = '';
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+
 		if ($this->getParams()->get('rss') == '1')
 		{
 			// $$$ rob test fabriks own feed renderer
-			// $link = 'index.php?option=com_fabrik&view=table&listid=' . $this->getState('list.id'); . "&format=feed";
-			$link = 'index.php?option=com_fabrik&view=list&listid=' . $this->getId() . "&format=fabrikfeed";
+			$link = 'index.php?option=com_' . $package . '&view=list&listid=' . $this->getId() . "&format=fabrikfeed";
 			if (!$app->isAdmin())
 			{
 				$link = JRoute::_($link);
@@ -7063,8 +7451,8 @@ class FabrikFEModelList extends JModelForm
 		/* replace {element name} with form data */
 		/* $$$ hugh - testing changing the regex so we don't blow away PHP structures!  Added the \s so
 		 * we only match non-space chars in {}'s.  So unless you have some code like "if (blah) {foo;}", PHP
-		 * block level {}'s should remain unmolested.
-		 */
+		* block level {}'s should remain unmolested.
+		*/
 		$msg = preg_replace_callback("/{[^}\s]+}/i", array($this, '_replaceWithRowData'), $msg);
 		return $msg;
 	}
@@ -7081,6 +7469,13 @@ class FabrikFEModelList extends JModelForm
 	private function _replaceWithRowData($matches)
 	{
 		$match = $matches[0];
+
+		// $$$ felixkat - J! plugin closings, i.e  {/foo} were getting caught here.
+		if (preg_match('[{/]', $match))
+		{
+			return $match;
+		}
+
 		/* strip the {} */
 		$match = JString::substr($match, 1, JString::strlen($match) - 2);
 
@@ -7239,18 +7634,15 @@ class FabrikFEModelList extends JModelForm
 		$customLink = $this->getCustomLink('url', 'edit');
 		if ($customLink == '')
 		{
+			$package = $app->getUserState('com_fabrik.package', 'fabrik');
 			if ($app->isAdmin())
 			{
-				$url = 'index.php?option=com_fabrik&task=form.view&formid=' . $table->form_id . $keyIdentifier;
+				$url = 'index.php?option=com_' . $package . '&task=form.view&formid=' . $table->form_id . $keyIdentifier;
 			}
 			else
 			{
-				$url = 'index.php?option=com_fabrik&view=form&Itemid=' . $Itemid . '&formid=' . $table->form_id . $keyIdentifier . '&listid='
-					. $this->getId();
-			}
-			if ($this->packageId !== 0)
-			{
-				$url .= '&tmpl=component';
+				$url = 'index.php?option=com_' . $package . '&view=form&Itemid=' . $Itemid . '&formid=' . $table->form_id . $keyIdentifier . '&listid='
+						. $this->getId();
 			}
 			$link = JRoute::_($url);
 		}
@@ -7293,7 +7685,7 @@ class FabrikFEModelList extends JModelForm
 	 *
 	 * @param   bool    $addIfNotExists  add 'if not exists' to query
 	 * @param   string  $table           table to get sql for(leave out to use models table)
-	 *
+	 	*
 	 * @return  string	sql to drop & or create table
 	 */
 
@@ -7352,6 +7744,8 @@ class FabrikFEModelList extends JModelForm
 	 *
 	 * @param   object  $oExporter  exporter
 	 *
+	 * @deprecated - not used?
+	 *
 	 * @return  string	sql to drop & or create table
 	 */
 
@@ -7363,9 +7757,9 @@ class FabrikFEModelList extends JModelForm
 		$db = $this->getDb();
 		/*
 		 * dont load in all the table data as on large tables this gives a memory error
-		 * in fact this wasnt the problem, but rather the $sql var becomes too large to hold in memory
-		 * going to try saving to a file on the server and then compressing that and sending it as a header for download
-		 */
+		* in fact this wasnt the problem, but rather the $sql var becomes too large to hold in memory
+		* going to try saving to a file on the server and then compressing that and sending it as a header for download
+		*/
 		$query = $db->getQuery(true);
 		$query->select($table->db_primary_key)->from($table->db_table_name);
 		$db->setQuery($query);
@@ -7442,8 +7836,8 @@ class FabrikFEModelList extends JModelForm
 				$this->formatData($row);
 				/* $$$ hugh - if table is grouped, formatData will have turned $row into an
 				 * assoc array, so can't assume 0 is first key.
-				 * $this->rows[$sig] = $row[0][0];
-				 */
+				* $this->rows[$sig] = $row[0][0];
+				*/
 				$row = JArrayHelper::getValue($row, FArrayHelper::firstKey($row), array());
 				$this->rows[$sig] = JArrayHelper::getValue($row, 0, new stdClass);
 			}
@@ -7468,8 +7862,8 @@ class FabrikFEModelList extends JModelForm
 			{
 				$this->formatData($rows);
 				/* $$$ hugh - if list is grouped, formatData will have re-index as assoc array,
-				/* so can't assume 0 is first key.
-				 */
+				 /* so can't assume 0 is first key.
+				*/
 				$this->rows[$sig] = JArrayHelper::getValue($rows, FArrayHelper::firstKey($rows), array());
 			}
 			else
@@ -7492,13 +7886,15 @@ class FabrikFEModelList extends JModelForm
 
 	public function findRow($key, $val, $format = false)
 	{
-		$usekey = JRequest::getVar('usekey');
-		$usekey_comparison = JRequest::getVar('usekey_comparison');
-		JRequest::setVar('usekey', $key);
-		JRequest::setVar('usekey_comparison', 'like');
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$usekey = $input->get('usekey');
+		$usekey_comparison = $input->get('usekey_comparison');
+		$input->set('usekey', $key);
+		$input->set('usekey_comparison', 'like');
 		$row = $this->getRow($val, $format);
-		JRequest::setVar('usekey', $usekey);
-		JRequest::setVar('usekey_comparison', $usekey_comparison);
+		$input->set('usekey', $usekey);
+		$input->set('usekey_comparison', $usekey_comparison);
 		return $row;
 	}
 
@@ -7515,7 +7911,7 @@ class FabrikFEModelList extends JModelForm
 		$fabrikDb = $this->getDb();
 		$cursor = JRequest::getInt('cursor', 1);
 		$this->getConnection();
-		$this->_outPutFormat = 'json';
+		$this->outPutFormat = 'json';
 		$nav = $this->getPagination(1, $cursor, 1);
 		if ($mode == 'table')
 		{
@@ -7552,7 +7948,7 @@ class FabrikFEModelList extends JModelForm
 	{
 		$cursor = JRequest::getInt('cursor', 1);
 		$this->getConnection();
-		$this->_outPutFormat = 'json';
+		$this->outPutFormat = 'json';
 		$nav = $this->getPagination(1, $cursor, 1);
 		$data = $this->getData();
 		echo json_encode($data);
@@ -7568,7 +7964,7 @@ class FabrikFEModelList extends JModelForm
 	{
 		$cursor = JRequest::getInt('cursor', 1);
 		$this->getConnection();
-		$this->_outPutFormat = 'json';
+		$this->outPutFormat = 'json';
 		$nav = $this->getPagination(1, $cursor - 2, 1);
 		$data = $this->getData();
 		return json_encode($data);
@@ -7584,7 +7980,7 @@ class FabrikFEModelList extends JModelForm
 	{
 		$cursor = JRequest::getInt('cursor', 1);
 		$this->getConnection();
-		$this->_outPutFormat = 'json';
+		$this->outPutFormat = 'json';
 		$nav = $this->getPagination(1, 0, 1);
 		$data = $this->getData();
 		return json_encode($data);
@@ -7600,54 +7996,79 @@ class FabrikFEModelList extends JModelForm
 	{
 		$total = JRequest::getInt('total', 0);
 		$this->getConnection();
-		$this->_outPutFormat = 'json';
+		$this->outPutFormat = 'json';
 		$nav = $this->getPagination(1, $total - 1, 1);
 		$data = $this->getData();
 		return json_encode($data);
 	}
 
 	/**
-	 * gFet a single column of data from the table, test for element filters
+	 * Get a single column of data from the table, test for element filters
 	 *
-	 * @param   string  $col  column to get
+	 * @param   mixed   $col       Column to grab. Element full name or id
+	 * @param   bool    $distinct  Select distinct values only
 	 *
-	 * @return  array  values for the column - empty array if no results found
+	 * @return  array  Values for the column - empty array if no results found
 	 */
 
-	public function getColumnData($col)
+	public function getColumnData($col, $distinct = true)
 	{
 		if (!array_key_exists($col, $this->columnData))
 		{
-			$table = $this->getTable();
 			$fbConfig = JComponentHelper::getParams('com_fabrik');
-			$db = $this->getDb();
-			$el = $this->getFormModel()->getElement($col);
-			$colQuoted = FabrikString::safeColName($col);
-			$el->encryptFieldName($colQuoted);
-			$tablename = $table->db_table_name;
-			$tablename = FabrikString::safeColName($tablename);
-			$query = "SELECT DISTINCT($colQuoted) FROM " . $tablename . ' ' . $this->_buildQueryJoin();
-			$query .= $this->_buildQueryWhere(false);
-			$query .= " LIMIT " . $fbConfig->get('filter_list_max', 100);
-			$query = $this->pluginQuery($query);
-			$db->setQuery($query);
-			$res = $db->loadColumn();
+			$cache = FabrikWorker::getCache();
+			$res = $cache->call(array(get_class($this), 'columnData'), $this->getId(), $col, $distinct);
 			if (is_null($res))
 			{
-				JError::raiseNotice(500, 'list model getColumn Data for ' . $colQuoted . ' failed');
+				JError::raiseNotice(500, 'list model getColumn Data for ' . $col . ' failed');
 			}
 			if ((int) $fbConfig->get('filter_list_max', 100) == count($res))
 			{
-				JError::raiseNotice(500, JText::sprintf('COM_FABRIK_FILTER_LIST_MAX_REACHED', $colQuoted));
+				JError::raiseNotice(500, JText::sprintf('COM_FABRIK_FILTER_LIST_MAX_REACHED', $col));
 			}
-			FabrikHelperHTML::debug($query, 'filter:getColumnData query');
 			if (is_null($res))
 			{
 				$res = array();
 			}
+
 			$this->columnData[$col] = $res;
 		}
 		return $this->columnData[$col];
+	}
+
+	/**
+	 * Cached method to grab a colums' data, called from getColumnData()
+	 *
+	 * @param   int    $listId    List id
+	 * @param   mixed  $col       Column to grab. Element full name or id
+	 * @param   bool   $distinct  Select distinct values only
+	 *
+	 * @since   3.0.7
+	 *
+	 * @return  array  column's values
+	 */
+
+	public static function columnData($listId, $col, $distinct = true)
+	{
+		$listModel = JModel::getInstance('List', 'FabrikFEModel');
+		$listModel->setId($listId);
+		$table = $listModel->getTable();
+		$fbConfig = JComponentHelper::getParams('com_fabrik');
+		$db = $listModel->getDb();
+		$el = $listModel->getFormModel()->getElement($col, true);
+		$col = FabrikString::safeColName($el->getFullName(false, false, false));
+		$el->encryptFieldName($col);
+		$tablename = $table->db_table_name;
+		$tablename = FabrikString::safeColName($tablename);
+		$query = $db->getQuery(true);
+		$col = $distinct ? 'DISTINCT(' . $col . ')' : $col;
+		$query->select($col)->from($tablename);
+		$query = $listModel->_buildQueryJoin($query);
+		$query = $listModel->_buildQueryWhere(false, $query);
+		$query = $listModel->pluginQuery($query);
+		$db->setQuery($query, 0, $fbConfig->get('filter_list_max', 100));
+		$res = $db->loadColumn(0);
+		return $res;
 	}
 
 	/**
@@ -7753,8 +8174,8 @@ class FabrikFEModelList extends JModelForm
 						case 'safecolname':
 							// Deprecated (except for querystring filters and inline edit)
 						case 'filtername':
-						// $$$ rob hack to ensure that querystring filters dont use the concat string when getting the
-						// Dbkey for the element, otherwise related data doesn't work
+							// $$$ rob hack to ensure that querystring filters dont use the concat string when getting the
+							// Dbkey for the element, otherwise related data doesn't work
 							$origconcat = $elementModel->getParams()->get('join_val_column_concat');
 							$elementModel->getParams()->set('join_val_column_concat', '');
 
@@ -7788,7 +8209,11 @@ class FabrikFEModelList extends JModelForm
 
 	public function requiresSlimbox()
 	{
-
+		$fbConfig = JComponentHelper::getParams('com_fabrik');
+		if ($fbConfig->get('include_lightbox_js', 1) == 2)
+		{
+			return true;
+		}
 		$form = $this->getFormModel();
 		$groups = $form->getGroupsHiarachy();
 		foreach ($groups as $group)
@@ -7827,6 +8252,7 @@ class FabrikFEModelList extends JModelForm
 
 	public function getAdvancedElementFilter()
 	{
+		$app = JFactory::getApplication();
 		$element = JRequest::getVar('element');
 		$elementid = JRequest::getVar('elid');
 		$pluginManager = FabrikWorker::getPluginManager();
@@ -7834,7 +8260,14 @@ class FabrikFEModelList extends JModelForm
 		$plugin = $pluginManager->getPlugIn($className, 'element');
 		$plugin->setId($elementid);
 		$el = $plugin->getElement();
-		$container = 'listform_' . $this->getRenderContext();
+		if ($app->input->get('context') == 'visualization')
+		{
+			$container = $app->input->get('parentView');
+		}
+		else
+		{
+			$container = 'listform_' . $this->getRenderContext();
+		}
 		$script = $plugin->filterJS(false, $container);
 		FabrikHelperHTML::addScriptDeclaration($script);
 		echo $plugin->getFilter(JRequest::getInt('counter', 0), false);
@@ -7895,15 +8328,15 @@ class FabrikFEModelList extends JModelForm
 		{
 			/*  $$$ rob set this options in the js - so if we want to open a
 			 * link normaly we can right click and open the page as a standard J view
-			 * if ($this->isAjaxLinks())
+			* if ($this->isAjaxLinks())
 			{
-			    $qs['ajax'] = '1';
+			$qs['ajax'] = '1';
 			} */
 			$formModel = $this->getFormModel();
 			$formid = $formModel->getForm()->id;
 			/* if ($this->packageId !== 0 || $this->isAjaxLinks())
-			{
-			    $qs['tmpl'] = 'component';
+			 {
+			$qs['tmpl'] = 'component';
 			} */
 
 			$qs['option'] = 'com_fabrik';
@@ -7920,8 +8353,8 @@ class FabrikFEModelList extends JModelForm
 
 			/* $$$ hugh - testing social profile session hash, which may get set by things like
 			 * the CB or JomSocial plugin.  Needed so things like the 'user' element can derive the
-			 * user ID of the profile being viewed, to which a record is being added.
-			 */
+			* user ID of the profile being viewed, to which a record is being added.
+			*/
 			if (JRequest::getVar('fabrik_social_profile_hash', '') != '')
 			{
 				$qs['fabrik_social_profile_hash'] = JRequest::getCmd('fabrik_social_profile_hash', '');
@@ -7992,8 +8425,8 @@ class FabrikFEModelList extends JModelForm
 		$uri = clone (JURI::getInstance());
 		/* $$$ rob force these to be 0 once the menu item has been loaded for the first time
 		 * subsequent loads of the link should have this set to 0. When the menu item is re-clicked
-		 * rest filters is set to 1 again
-		 */
+		* rest filters is set to 1 again
+		*/
 		$router->setVar('resetfilters', 0);
 		if ($option !== 'com_fabrik')
 		{
@@ -8016,13 +8449,13 @@ class FabrikFEModelList extends JModelForm
 			{
 				/* $$$ rob if you were using URL filters such as
 				 *
-				 * &jos_fabble_activity___create_date[value][]=now
-				 * &jos_fabble_activity___create_date[value][]=%2B2%20week&jos_fabble_activity___create_date[condition]=BETWEEN
-				 *
-				 * then we don't want to re-add them to the table action.
-				 * Instead they are aded to the filter sessions and reapplied that way
-				 * otherwise we ended up with elementname=Array in the query string
-				 */
+				* &jos_fabble_activity___create_date[value][]=now
+				* &jos_fabble_activity___create_date[value][]=%2B2%20week&jos_fabble_activity___create_date[condition]=BETWEEN
+				*
+				* then we don't want to re-add them to the table action.
+				* Instead they are aded to the filter sessions and reapplied that way
+				* otherwise we ended up with elementname=Array in the query string
+				*/
 				if ($el === false)
 				{
 					$qs[] = $k . '=' . $v;
@@ -8038,9 +8471,9 @@ class FabrikFEModelList extends JModelForm
 				{
 					/* $$$ e-kinst
 					 * let's keep &id for com_content - in other case in Content Plugin
-					 * we have incorrect action in form and as a result bad pagination URLS.
-					 * In any case this will not be excessive (I suppose)
-					 */
+					* we have incorrect action in form and as a result bad pagination URLS.
+					* In any case this will not be excessive (I suppose)
+					*/
 					if ($k == 'id' && $option == 'com_content')
 					{
 						// At least. May be even  $option != 'com_fabrik'
@@ -8051,11 +8484,11 @@ class FabrikFEModelList extends JModelForm
 
 					/* 28/12/2011 $$$ rob testing never keeping querystring filters in the qs but instead always
 					 * adding them to the filters (if no filter set up in element settings then hidden fields added anyway
-					 * this is to try to get round issue of related data (countries->regions) filter region from country list,
-					 * then clear filters (ok) but then if you go to 2nd page of results country url filter re-applied
-					 */
+					 		* this is to try to get round issue of related data (countries->regions) filter region from country list,
+					 		* then clear filters (ok) but then if you go to 2nd page of results country url filter re-applied
+					 		*/
 					/* if($el->getElement()->plugin !== 'textarea' && $el->getParams()->get('textarea-tagify') !== true) {
-					    $qs[] = "$k=$v";
+					 $qs[] = "$k=$v";
 					} */
 				}
 			}
@@ -8084,14 +8517,14 @@ class FabrikFEModelList extends JModelForm
 		$whereClause = preg_replace('#(^where |^and |^or )#', '', $whereClause);
 		/* only do anything if it's a different clause ...
 		 * if it's the same, no need to clear the table data, can use cached
-		 */
+		*/
 		if (!array_key_exists($pluginName, $this->_pluginQueryWhere) || $whereClause != $this->_pluginQueryWhere[$pluginName])
 		{
 			// Set the internal data, which will get used in _buildQueryWhere
 			$this->_pluginQueryWhere['chart'] = $whereClause;
 			/* as we are modifying the main getData query, we need to make sure and
 			 * clear table data, forcing next getData() to do the query again, no cache
-			 */
+			*/
 			$this->set('_data', null);
 		}
 		// Return true just for the heck of it
@@ -8118,7 +8551,7 @@ class FabrikFEModelList extends JModelForm
 	/**
 	 * If all filters are set to read only then don't return a clear button
 	 * otherwised do
-	 *
+	 	*
 	 * @return  string	clear filter button link
 	 */
 
@@ -8181,7 +8614,7 @@ class FabrikFEModelList extends JModelForm
 		$tableParams = $this->getParams();
 		$table = $this->getTable();
 		$pluginManager = FabrikWorker::getPluginManager();
-		$method = 'renderListData_' . $this->_outPutFormat;
+		$method = 'renderListData_' . $this->outPutFormat;
 		$this->_aLinkElements = array();
 
 		// $$$ hugh - temp foreach fix
@@ -8189,15 +8622,22 @@ class FabrikFEModelList extends JModelForm
 		$ec = count($data);
 		foreach ($groups as $groupModel)
 		{
-			if (($tableParams->get('group_by_template', '') !== '' && $this->getGroupBy() != '') || $this->_outPutFormat == 'csv'
-				|| $this->_outPutFormat == 'feed')
+			/* if (($tableParams->get('group_by_template', '') !== '' && $this->getGroupBy() != '') || $this->outPutFormat == 'csv'
+			 || $this->outPutFormat == 'feed')
 			{
-				$elementModels = $groupModel->getPublishedElements();
+			$elementModels = $groupModel->getPublishedElements();
 			}
 			else
 			{
-				$elementModels = $groupModel->getPublishedListElements();
-			}
+			$elementModels = $groupModel->getPublishedListElements();
+			} */
+
+			/*
+			 * $$$ rob 29/10/2012 - see http://fabrikar.com/forums/showthread.php?t=28830
+			* Calc may be set to show in list via menu item, but groupModel::getPublishedListElements() doesn't know
+			* this. Seems best to run all calcs regardless of whether they are set to show in list.
+			*/
+			$elementModels = $groupModel->getPublishedElements();
 			foreach ($elementModels as $elementModel)
 			{
 				$col = $elementModel->getFullName(false, true, false);
@@ -8258,16 +8698,16 @@ class FabrikFEModelList extends JModelForm
 		}
 		/* First, go round first row of data, and prep some stuff.
 		 * Basically, if doing a "reduce data" merge (merge == 2), we need to know what the
-		 * PK element is for each joined group (well, for each element, really)
-		 */
+		* PK element is for each joined group (well, for each element, really)
+		*/
 		foreach ($data[0] as $key => $val)
 		{
 			$origKey = $key;
 			$tmpkey = FabrikString::rtrimword($key, '_raw');
 			/* $$$ hugh - had to cache this stuff, because if you have a lot of rows and a lot of elements,
 			 * doing this many hundreds of times causes huge slowdown, exceeding max script execution time!
-			 * And we really only need to do it once for the first row.
-			 */
+			* And we really only need to do it once for the first row.
+			*/
 			if (!isset($can_repeats[$tmpkey]))
 			{
 				$elementModel = $formModel->getElement($tmpkey);
@@ -8299,7 +8739,7 @@ class FabrikFEModelList extends JModelForm
 								// $$$ hugh - might be a view, so Hail Mary attempt to get PK
 								$query = $db->getQuery(true);
 								$query->select('db_primary_key')->from('#__{package}_lists')
-									->where('db_table_name = ' . $db->quote($join_table_name));
+								->where('db_table_name = ' . $db->quote($join_table_name));
 								$db->setQuery($query);
 								$join_pk = $db->loadResult();
 								if (!empty($join_pk))
@@ -8349,8 +8789,8 @@ class FabrikFEModelList extends JModelForm
 						{
 							/* $$$ rob - this was just appending data with a <br> but as we do thie before the data is formatted
 							 * it was causing all sorts of issues for list rendering of links, dates etc. So now turn the data into
-							 * an array and at the end of this method loop over the data to encode the array into a json object.
-							 */
+							* an array and at the end of this method loop over the data to encode the array into a json object.
+							*/
 							$do_merge = true;
 							if ($merge == 2)
 							{
@@ -8367,9 +8807,9 @@ class FabrikFEModelList extends JModelForm
 							{
 								/* The raw data is not altererd at the moment - not sure that that seems correct but can't see any issues
 								 * with it currently
-								 * $$$ hugh - added processing of raw data, needed for _raw placeholders
-								 * in things like custom links
-								 */
+								* $$$ hugh - added processing of raw data, needed for _raw placeholders
+								* in things like custom links
+								*/
 								$data[$last_i]->$key = (array) $data[$last_i]->$key;
 								array_push($data[$last_i]->$key, $val);
 								$rawkey = $key . '_raw';
@@ -8381,11 +8821,11 @@ class FabrikFEModelList extends JModelForm
 						else
 						{
 							/* $$$ hugh - don't think we need this, now we're processing _raw data?
-							if (!is_array($data[$last_i]->$origKey)) {
-							    $json= $val;
-							    $data[$last_i]->$origKey = json_encode($json);
+							 if (!is_array($data[$last_i]->$origKey)) {
+							$json= $val;
+							$data[$last_i]->$origKey = json_encode($json);
 							}
-							 */
+							*/
 						}
 					}
 
@@ -8521,7 +8961,7 @@ class FabrikFEModelList extends JModelForm
 
 	public function getOutPutFormat()
 	{
-		return $this->_outPutFormat;
+		return $this->outPutFormat;
 	}
 
 	/**
@@ -8533,14 +8973,14 @@ class FabrikFEModelList extends JModelForm
 	 */
 	public function setOutPutFormat($f)
 	{
-		$this->_outPutFormat = $f;
+		$this->outPutFormat = $f;
 	}
 
 	/**
 	 * Update a series of rows with a key = val , works across joined tables
 	 *
 	 * @param   array   $ids  pk values to update
-	 * @param   string  $col  key to update
+	 * @param   string  $col  key to update should be in format 'table.element'
 	 * @param   string  $val  val to set to
 	 *
 	 * @return  void
@@ -8565,7 +9005,8 @@ class FabrikFEModelList extends JModelForm
 		$table = $this->getTable();
 
 		$update = $col . ' = ' . $db->quote($val);
-		$tbl = array_shift(explode('.', $col));
+		$colbits = explode('.', $col);
+		$tbl = array_shift($colbits);
 
 		$joinFound = false;
 		JArrayHelper::toInteger($ids);
@@ -8658,29 +9099,33 @@ class FabrikFEModelList extends JModelForm
 		if (!isset($this->tmpl))
 		{
 			$app = JFactory::getApplication();
+			$input = $app->input;
 			$item = $this->getTable();
 			$params = $this->getParams();
 			$document = JFactory::getDocument();
 			if ($app->isAdmin())
 			{
-				$this->tmpl = JRequest::getVar('layout', $params->get('admin_template'));
+				//$this->tmpl = JRequest::getVar('layout', $params->get('admin_template'));
+				$this->tmpl = $input->get('layout', $params->get('admin_template'));
 			}
 			else
 			{
-				$this->tmpl = JRequest::getVar('layout', $item->template);
+				//$this->tmpl = JRequest::getVar('layout', $item->template);
+				$this->tmpl = $input->get('layout', $item->template);
+				if ($app->scope !== 'mod_fabrik_list')
+				{
+					$this->tmpl = FabrikWorker::getMenuOrRequestVar('fabriklayout', $this->tmpl, $this->isMambot);
+					/* $$$ rob 10/03/2012 changed menu param to listlayout to avoid the list menu item
+					 * options also being used for the form/details view template
+					*/
+					$this->tmpl = FabrikWorker::getMenuOrRequestVar('listlayout', $this->tmpl, $this->isMambot);
+				}
 			}
 			if ($this->tmpl == '')
 			{
 				$this->tmpl = 'default';
 			}
-			if ($app->scope !== 'mod_fabrik_list')
-			{
-				$this->tmpl = FabrikWorker::getMenuOrRequestVar('fabriklayout', $this->tmpl, $this->isMambot);
-				/* $$$ rob 10/03/2012 changed menu param to listlayout to avoid the list menu item
-				 * options also being used for the form/details view template
-				 */
-				$this->tmpl = FabrikWorker::getMenuOrRequestVar('listlayout', $this->tmpl, $this->isMambot);
-			}
+
 			// If we are mobilejoomla.com system plugin to detect smartphones
 			if (JRequest::getVar('mjmarkup') == 'iphone')
 			{
@@ -8707,8 +9152,8 @@ class FabrikFEModelList extends JModelForm
 		$params = $this->getParams();
 		foreach ($groups as $groupModel)
 		{
-			if (($params->get('group_by_template', '') !== '' && $this->getGroupBy() != '') || $this->_outPutFormat == 'csv'
-				|| $this->_outPutFormat == 'feed')
+			if (($params->get('group_by_template', '') !== '' && $this->getGroupBy() != '') || $this->outPutFormat == 'csv'
+					|| $this->outPutFormat == 'feed')
 			{
 				$elementModels = $groupModel->getPublishedElements();
 			}
@@ -8729,7 +9174,7 @@ class FabrikFEModelList extends JModelForm
 		$cnn = $this->getConnection()->getConnection();
 		/* if the table database is not the same as the joomla database then
 		 * we should simply return a hidden field with the user id in it.
-		 */
+		*/
 		return $config->get('db') == $cnn->database;
 	}
 
@@ -8756,8 +9201,8 @@ class FabrikFEModelList extends JModelForm
 			}
 			/* $$$ hugh - as per Skype convos with Rob, decided to re-instate the custom.css convention.  So I'm adding two files:
 			 * custom.css - for backward compat with existing 2.x custom.css
-			 * custom_css.php - what we'll recommend people use for custom css moving foward.
-			 */
+			* custom_css.php - what we'll recommend people use for custom css moving foward.
+			*/
 			if (!FabrikHelperHTML::stylesheetFromPath('templates/' . $app->getTemplate() . '/html/com_fabrik/list/' . $tmpl . '/custom.css' . $qs))
 			{
 				FabrikHelperHTML::stylesheetFromPath('components/com_fabrik/views/list/tmpl/' . $tmpl . '/custom.css');
@@ -8790,16 +9235,24 @@ class FabrikFEModelList extends JModelForm
 	public function setRenderContext($id = null)
 	{
 		$app = JFactory::getApplication();
+		$input = $app->input;
+		$task = $input->getCmd('task');
+		if (strstr($task, '.'))
+		{
+			$task = explode('.', $task);
+			$task = array_pop($task);
+		}
 
 		// $$$ rob if admin filter task = filter and not list.filter
-		if (JRequest::getVar('task') == 'list.filter' || ($app->isAdmin() && JRequest::getVar('task') == 'filter'))
+		if ($task == 'filter' || ($app->isAdmin() && JRequest::getVar('task') == 'filter'))
 		{
 			$this->setRenderContextFromRequest();
 		}
 		else
 		{
-			if ((JRequest::getVar('task') == 'list.view' && JRequest::getVar('format') == 'raw') || JRequest::getVar('layout') == '_advancedsearch'
-				|| JRequest::getVar('task') === 'list.elementFilter')
+			if (((JRequest::getVar('task') == 'list.view' || JRequest::getVar('task') == 'list.delete') && JRequest::getVar('format') == 'raw')
+					|| JRequest::getVar('layout') == '_advancedsearch' || JRequest::getVar('task') === 'list.elementFilter'
+					|| JRequest::getVar('setListRefFromRequest') == 1)
 			{
 				// Testing for ajax nav in content plugin or in advanced search
 				$this->setRenderContextFromRequest();
@@ -8889,7 +9342,7 @@ class FabrikFEModelList extends JModelForm
 		$params = $this->getParams();
 		$formModel = $this->getFormModel();
 		$csvFields = array();
-		if ($params->get('csv_elements') == '')
+		if ($params->get('csv_elements') == '' || $params->get('csv_elements') == 'null')
 		{
 			$csvIds = array();
 		}
@@ -8948,7 +9401,7 @@ class FabrikFEModelList extends JModelForm
 	{
 		$params = $this->getParams();
 		if ($this->canAdd() || $this->getShowFilters() || $this->getAdvancedSearchLink() || $this->canGroupBy() || $this->canCSVExport()
-			|| $this->canCSVImport() || $params->get('rss') || $params->get('pdf') || $this->canEmpty())
+				|| $this->canCSVImport() || $params->get('rss') || $params->get('pdf') || $this->canEmpty())
 		{
 			return true;
 		}
@@ -9079,6 +9532,8 @@ class FabrikFEModelList extends JModelForm
 	 * and just format everything, needed by things like the table email plugin.
 	 * If called without an arg, just returns current setting.
 	 *
+	 * $$$ hugh - doesn't work, now that finesseData() is called via call_user_func().
+	 *
 	 * @param   bool  $format_all  optional arg to set format
 	 *
 	 * @return  bool
@@ -9125,4 +9580,41 @@ class FabrikFEModelList extends JModelForm
 		return $state;
 	}
 
+	/**
+	 * Return an array of elements which are set to always render
+	 *
+	 * @param   bool  only return elements which have 'always render' enabled, AND are not displayed in the list
+	 *
+	 * @return   bool  array of element models
+	 */
+
+	public function getAlwaysRenderElements($not_shown_only = true)
+	{
+		$form = $this->getFormModel();
+		$alwaysRender = array();
+		$groups = $form->getGroupsHiarachy();
+		foreach ($groups as $groupModel)
+		{
+			$elementModels = $groupModel->getPublishedElements();
+			foreach ($elementModels as $elementModel)
+			{
+				if ($elementModel->isAlwaysRender($not_shown_only))
+				{
+					$alwaysRender[] = $elementModel;
+				}
+			}
+		}
+		return $alwaysRender;
+	}
+
+	/**
+	 * Does the list have any 'always render' elements?
+	 *
+	 * @return   bool
+	 */
+	public function hasAlwaysRenderElements()
+	{
+		$alwaysRender = $this->getAlwaysRenderElements();
+		return !empty($alwaysRender);
+	}
 }

@@ -6,7 +6,9 @@ AdvancedSearch = new Class({
 	Implements: [Options, Events],
 	
 	options: {
-		'ajax': false
+		'ajax': false,
+		'controller': 'list',
+		'parentView': ''
 	},
 			
 	initialize: function (options) {
@@ -22,20 +24,41 @@ AdvancedSearch = new Class({
 				tr.inject(this.form.getElement('.advanced-search-list').getElements('tr').getLast(), 'after');
 			}.bind(this));
 		}
+		
+		this.form.addEvent('click:relay(tr)', function (e, target) {
+			this.form.getElements('tr').removeClass('fabrikRowClick');
+			target.addClass('fabrikRowClick');
+		}.bind(this));
 		this.watchDelete();
 		this.watchApply();
 		this.watchElementList();
 	},
 	
 	watchApply: function () {
-		if (!this.options.ajax) {
-			return;
-		}
+		
 		this.form.getElement('.advanced-search-apply').addEvent('click', function (e) {
+			Fabrik.fireEvent('fabrik.advancedSearch.submit', this);
+			var filterManager = Fabrik['filter_' + this.options.parentView];
+			
+			// Format date advanced search fields to db format before posting
+			if (typeOf(filterManager) !== 'null') {
+				filterManager.onSubmit();
+			}
+			if (!this.options.ajax) {
+				return;
+			}
 			e.stop();
-			var list = Fabrik.blocks['list_' + this.options.listref];
-			list.submit('list.filter');
+			var list = this.getList();
+			list.submit(this.options.controller + '.filter');
 		}.bind(this));
+	},
+	
+	getList: function () {
+		var list = Fabrik.blocks['list_' + this.options.listref];
+		if (typeOf(list) === 'null') {
+			list = Fabrik.blocks[this.options.parentView];
+		}
+		return list;
 	},
   
 	watchDelete: function () {
@@ -70,7 +93,8 @@ AdvancedSearch = new Class({
 		new Request.HTML({'url': url, 
 			'update': update, 
 			'data': {'element': v, 'id': this.options.listid, 'elid': eldata.id, 'plugin': eldata.plugin, 'counter': this.options.counter,
-				'listref':  this.options.listref},
+				'listref':  this.options.listref, 'context': this.options.controller, 
+				'parentView': this.options.parentView},
 			'onComplete': function () {
 				Fabrik.loader.stop(row);
 			}}).send();
@@ -81,6 +105,7 @@ AdvancedSearch = new Class({
 		e.stop();
 		var tr = this.form.getElement('.advanced-search-list').getElement('tbody').getElements('tr').getLast();
 		var clone = tr.clone();
+		clone.removeClass('oddRow1').removeClass('oddRow0').addClass('oddRow' + this.options.counter % 2);
 		clone.inject(tr, 'after');
 		clone.getElement('td').empty().set('html', this.options.conditionList);
 		var tds = clone.getElements('td');

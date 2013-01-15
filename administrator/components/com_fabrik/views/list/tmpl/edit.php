@@ -1,13 +1,15 @@
 <?php
-/*
- * @package Joomla.Administrator
- * @subpackage Fabrik
- * @since		1.6
- * @copyright Copyright (C) 2005 Rob Clayburn. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
-*/
+/**
+ * Admin List Edit Tmpl
+ *
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @since       3.0
+ */
 
-// no direct access
+// No direct access
 defined('_JEXEC') or die;
 
 JHtml::addIncludePath(JPATH_COMPONENT . '/helpers/html');
@@ -27,6 +29,22 @@ $srcs[] = 'administrator/components/com_fabrik/views/list/tmpl/adminlist.js';
 
 FabrikHelperHTML::script($srcs, $this->js);
 ?>
+
+<script type="text/javascript">
+
+	Joomla.submitbutton = function(task) {
+		if (task !== 'list.cancel'  && !controller.canSaveForm()) {
+			alert('Please wait - still loading');
+			return false;
+		}
+		if (task == 'list.cancel' || document.formvalidator.isValid(document.id('adminForm'))) {
+
+			Joomla.submitform(task, document.getElementById('adminForm'));
+		} else {
+			alert('<?php echo $this->escape(JText::_('JGLOBAL_VALIDATION_FORM_FAILED'));?>');
+		}
+	}
+</script>
 
 <form action="<?php JRoute::_('index.php?option=com_fabrik'); ?>" method="post" name="adminForm" id="adminForm" class="form-validate">
 

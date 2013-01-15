@@ -22,7 +22,14 @@ class plgFabrik_ElementBirthday extends plgFabrik_Element
 
 	public $hasSubElements = true;
 
-	protected $fieldDesc = 'DATE';
+	/** @var  string  db table field type */
+		
+		public function getFieldDescription()
+		{
+		return 'DATE';
+		}
+		
+		// protected $fieldDesc = 'DATE';
 
 	/**
 	 * Draws the html form element
@@ -60,7 +67,7 @@ class plgFabrik_ElementBirthday extends plgFabrik_Element
 		 * _form_data was not set to no readonly value was returned
 		 * added little test to see if the data was actually an array before using it
 		 */
-		if (is_array($this->getFormModel()->data))
+		if (is_array($this->_form->_data))
 		{
 			$data = $this->_form->_data;
 		}
@@ -68,7 +75,7 @@ class plgFabrik_ElementBirthday extends plgFabrik_Element
 		$fd = $params->get('details_date_format', 'd.m.Y');
 		$dateandage = (int) $params->get('details_dateandage', '0');
 
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			if (!in_array($value, $aNullDates))
 			{
@@ -246,9 +253,7 @@ class plgFabrik_ElementBirthday extends plgFabrik_Element
 			$joinid = $groupModel->getGroup()->join_id;
 			$formModel = $this->getForm();
 
-			// $$$rob - if no search form data submitted for the search element then the default
-			// selection was being applied instead
-			$value = JArrayHelper::getValue($opts, 'use_default', true) == false ? '' : $this->getDefaultValue($data);
+			$value = $this->getDefaultOnACL($data, $opts);
 
 			$name = $this->getFullName(false, true, false);
 			$rawname = $name . "_raw";
@@ -446,8 +451,10 @@ class plgFabrik_ElementBirthday extends plgFabrik_Element
 
 	public function elementJavascript($repeatCounter)
 	{
+		$params = $this->getParams();
 		$id = $this->getHTMLId($repeatCounter);
 		$opts = $this->getElementJSOptions($repeatCounter);
+		$opts->separator = $params->get('birthday_separatorlabel', JText::_('/'));
 		$opts = json_encode($opts);
 		return "new FbBirthday('$id', $opts)";
 	}

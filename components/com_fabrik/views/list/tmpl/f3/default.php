@@ -27,7 +27,7 @@ if ($this->params->get('show_page_title', 1)) { ?>
 	<?php if ($this->tablePicker != '') { ?>
 		<div style="text-align:right"><?php echo JText::_('COM_FABRIK_LIST') ?>: <?php echo $this->tablePicker; ?></div>
 	<?php } ?>
-	<?php if ($this->params->get('show-title', 1)) {?>
+	<?php if ($this->getModel()->getParams()->get('show-title', 1)) {?>
 		<h1><?php echo $this->table->label;?></h1>
 	<?php }?>
 	<?php echo $this->table->intro;?>
@@ -68,4 +68,5 @@ if ($this->params->get('show_page_title', 1)) { ?>
 	<?php	echo $this->loadTemplate('footer');?>
 </div>
 </form>
+<?php echo $this->table->outro;?>
 </div>

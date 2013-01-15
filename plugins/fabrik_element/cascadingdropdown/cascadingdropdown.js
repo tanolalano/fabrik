@@ -7,19 +7,23 @@
  
 var FbCascadingdropdown = new Class({
 	 
-	Extends: FbElement, 
+	Extends: FbDatabasejoin, 
 	initialize: function (element, options) {
 		var o = null;
 		this.ignoreAjax = false;
 		this.plugin = 'cascadingdropdown';
 		this.parent(element, options);
-		this.doWatchEvent = this.dowatch.bindWithEvent(this);
 		if (document.id(this.options.watch)) {
-			document.id(this.options.watch).addEvent('change', this.doWatchEvent);
+			document.id(this.options.watch).addEvent('change', function (e) {
+				this.dowatch(e);
+			}.bind(this));
 		}
 		if (this.options.showDesc === true) {
-			this.element.addEvent('change', this.showDesc.bindWithEvent(this));
+			this.element.addEvent('change', function (e) {
+				this.showDesc(e);
+			}.bind(this));
 		}
+		this.watchJoinCheckboxes();
 	},
 	
 	attachedToForm: function ()
@@ -37,7 +41,7 @@ var FbCascadingdropdown = new Class({
 	
 	dowatch: function (e)
 	{
-		var v = e.target.get('value');
+		var v = Fabrik.blocks[this.form.form.id].formElements[this.options.watch].getValue();
 		this.change(v, e.target.id);
 	},
 	
@@ -92,7 +96,7 @@ var FbCascadingdropdown = new Class({
 			this.element.getParent().getElement('.loader').hide();
 			json = JSON.decode(json);
 			if (this.options.editable) {
-				this.element.empty();
+				this.destroyElement();
 			} else {
 				this.element.getElements('div').destroy();
 			}
@@ -108,9 +112,13 @@ var FbCascadingdropdown = new Class({
 					// $$$ rob if loading edit form, at page load, u may have a previously selected value 
 					opts = item.value === origvalue ? {'value': item.value, 'selected': 'selected'} : {'value': item.value};
 					if (this.options.editable === false) {
+						
+						// Pretify new lines to brs
+						item.text = item.text.replace(/\n/g, '<br />');
 						new Element('div').set('html', item.text).inject(this.element);
 					} else {
-						new Element('option', opts).set('text', item.text).inject(this.element);
+						this.addOption(item.value, item.text);
+						//new Element('option', opts).set('text', item.text).inject(this.element);
 					}
 					
 					if (this.options.showDesc === true && item.description) {
@@ -124,6 +132,7 @@ var FbCascadingdropdown = new Class({
 					if (this.options.editable === false) {
 						new Element('div').set('text', item.text).inject(this.element);
 					} else {
+						this.addOption(item.value, item.text);
 						new Element('option', {'value': item.value, 'selected': 'selected'}).set('text', item.text).inject(this.element);
 					}
 				}
@@ -131,7 +140,7 @@ var FbCascadingdropdown = new Class({
 			this.ignoreAjax = false;
 			// $$$ hugh - need to remove/add 'readonly' class ???  Probably need to add/remove the readonly="readonly" attribute as well
 			//this.element.disabled = (this.element.options.length === 1 ? true : false);
-			if (this.options.editable) {
+			if (this.options.editable && this.options.displayType === 'dropdown') {
 				if (this.element.options.length === 1) {
 					this.element.readonly = true;
 					this.element.addClass('readonly');
@@ -160,10 +169,27 @@ var FbCascadingdropdown = new Class({
 		}).send();
 	},
 	
+	destroyElement: function () {
+		switch (this.options.displayType)
+		{
+		case 'radio':
+			/* falls through */
+		case 'checkbox':
+			this.getContainer().getElements('.fabrik_subelement').destroy();
+			break;
+		case 'dropdown':
+			/* falls through */ 
+		default:
+			this.element.empty();
+			break;
+		}
+	},
+	
 	cloned: function (c) {
-		//c is the repeat group count
+		// c is the repeat group count
 		this.myAjax = null;
-		//cloned seems to be called correctly 
+		this.parent(c);
+		// Cloned seems to be called correctly 
 		if (document.id(this.options.watch)) {
 			if (this.options.watchInSameGroup === true) {
 				// $$$ hugh - nope, 'cos watch already has the _X appended to it!
@@ -178,19 +204,21 @@ var FbCascadingdropdown = new Class({
 				}
 			}
 			if (document.id(this.options.watch)) {
-				//old events removed in database join element clone() method
-				// $$$ hugh - oh no they aren't!  join element cloned() method doesn't fire for this!
-				//this.element.removeEvents('change');
-				this.element.removeEvents('change', this.doWatchEvent); 
-				this.doWatchEvent = this.dowatch.bindWithEvent(this);
-				//$(this.options.watch).addEvent('change', this.watch.bindWithEvent(this));
-				document.id(this.options.watch).addEvent('change', this.doWatchEvent);
+
+				// Remove and re-attach watch event
+				document.id(this.options.watch).removeEvents('change', function (e) {
+					this.dowatch(e);
+				}.bind(this)); 
+				
+				document.id(this.options.watch).addEvent('change', function (e) {
+					this.dowatch(e);
+				}.bind(this));
 			}
 			
 		}
 		if (this.options.watchInSameGroup === true) {
 			this.element.empty();
-			//set ingoreAjax so that the ajax event that is fired when the element is added to the form manager
+			// Set ingoreAjax so that the ajax event that is fired when the element is added to the form manager
 			// does not update the newly cloned dropdown
 			this.ignoreAjax = true;
 		}

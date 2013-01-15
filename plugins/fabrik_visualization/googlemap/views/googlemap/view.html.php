@@ -1,5 +1,7 @@
 <?php
 /**
+ * Fabrik Google Map Viz HTML View
+ *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.visualization.googlemap
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -16,6 +18,7 @@ jimport('joomla.application.component.view');
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.visualization.googlemap
+ * @since       3.0
  */
 
 class fabrikViewGooglemap extends JView
@@ -49,7 +52,7 @@ class fabrikViewGooglemap extends JView
 		$uri = JURI::getInstance();
 		if ($params->get('fb_gm_center') == 'userslocation')
 		{
-			$document->addScript($uri->getScheme() . '://code.google.com/apis/gears/gears_init.js');
+			// $document->addScript($uri->getScheme() . '://code.google.com/apis/gears/gears_init.js');
 			$srcs[] = 'components/com_fabrik/libs/geo-location/geo.js';
 		}
 
@@ -120,7 +123,7 @@ class fabrikViewGooglemap extends JView
 		}
 		$this->_setPath('template', $tmplpath);
 		$this->assign('containerId', $this->get('ContainerId'));
-		$this->assignRef('grouptemplates', $this->get('GroupTemplates'));
+		$this->assignRef('groupTemplates', $this->get('GroupTemplates'));
 		echo parent::display($template);
 	}
 

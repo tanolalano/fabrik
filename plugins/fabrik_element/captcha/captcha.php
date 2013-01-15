@@ -133,6 +133,8 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 
 	function render($data, $repeatCounter = 0)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$session = JFactory::getSession();
 		$name = $this->getHTMLName($repeatCounter);
 		$id = $this->getHTMLId($repeatCounter);
@@ -140,7 +142,7 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 		$params = $this->getParams();
 		$user = JFactory::getUser();
 		$value = $this->getValue($data, $repeatCounter);
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			if ($element->hidden == '1')
 			{
@@ -165,7 +167,9 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 			}
 			else
 			{
-				return fabrik_recaptcha_get_html($id, $publickey, $theme, $lang, $error);
+				$browser = JBrowser::getInstance();
+				$ssl = $browser->isSSLConnection();
+				return fabrik_recaptcha_get_html($id, $publickey, $theme, $lang, $error, $ssl);
 			}
 		}
 		else
@@ -181,7 +185,7 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 			$code = $this->_generateCode($characters);
 
 			// $$$ hugh - code that generates image now in image.php
-			$session->set('com_fabrik.element.captach.security_code', $code);
+			$session->set('com_' . $package . '.element.captach.security_code', $code);
 
 			// ***** e-kinst
 			//	additional plugin params with validation
@@ -195,18 +199,18 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 
 			//	let's keep all params in relatively safe place not only captcha value
 			// Felixkat - Add
-			$session->set('com_fabrik.element.captach.fontsize', $fontsize);
-			$session->set('com_fabrik.element.captach.angle', $angle);
-			$session->set('com_fabrik.element.captach.padding', $padding);
+			$session->set('com_' . $package . '.element.captach.fontsize', $fontsize);
+			$session->set('com_' . $package . '.element.captach.angle', $angle);
+			$session->set('com_' . $package . '.element.captach.padding', $padding);
 
 			// Felixkat - Remove
-			//$session->set('com_fabrik.element.captach.height', $height);
-			//$session->set('com_fabrik.element.captach.width', $width);
+			//$session->set('com_' . $package . '.element.captach.height', $height);
+			//$session->set('com_' . $package . '.element.captach.width', $width);
 			// Felixkat - End
-			$session->set('com_fabrik.element.captach.noise_color', $noise_color);
-			$session->set('com_fabrik.element.captach.text_color', $text_color);
-			$session->set('com_fabrik.element.captach.bg_color', $bg_color);
-			$session->set('com_fabrik.element.captach.font', $this->_font);
+			$session->set('com_' . $package . '.element.captach.noise_color', $noise_color);
+			$session->set('com_' . $package . '.element.captach.text_color', $text_color);
+			$session->set('com_' . $package . '.element.captach.bg_color', $bg_color);
+			$session->set('com_' . $package . '.element.captach.font', $this->_font);
 			// * /e-kinst
 
 			// $$$ hugh - changed from static image path to using simple image.php script, to get round IE caching images
@@ -246,6 +250,8 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 
 	function validate($data, $repeatCounter = 0)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$params = $this->getParams();
 		if (!$this->canUse())
 		{
@@ -269,7 +275,7 @@ class plgFabrik_ElementCaptcha extends plgFabrik_Element
 			$this->getParams();
 			$elName = $this->getFullName(true, true, false);
 			$session = JFactory::getSession();
-			if ($session->get('com_fabrik.element.captach.security_code', null) != $data)
+			if ($session->get('com_' . $package . '.element.captach.security_code', null) != $data)
 			{
 				return false;
 			}

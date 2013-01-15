@@ -22,16 +22,16 @@ var adminCCK = new Class({
 			'class': 'paramlist_key'
 		}).set('text', 'view: '), new Element('td', {
 			'class': 'paramlist_value'
-		}).set('html', this.options.viewList) ]) ])) ]).inject($('form_' + this.options.formid), 'before');
+		}).set('html', this.options.viewList) ]) ])) ]).inject(document.id('form_' + this.options.formid), 'before');
 
 		Fabrik.addBlock('cck', this);
 		this.form.options.ajax = true;
 		// get the form to emulate being in a module
-		document.getElement('input[name=packageid]').value = '-1';
+		document.getElement('input[name=packageId]').value = '-1';
 	},
 
 	insertTag : function (json) {
-		var tmpl = $('fabrik_cck_template').get('value');
+		var tmpl = document.id('fabrik_cck_template').get('value');
 		var view = document.getElements('input[name=fabrik_cck_view]').filter(function (v) {
 			return v.checked;
 		});

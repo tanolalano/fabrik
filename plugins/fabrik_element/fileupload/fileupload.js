@@ -4,7 +4,7 @@ var FbFileUpload = new Class({
 		this.plugin = 'fileupload';
 		this.parent(element, options);
 		this.toppath = this.options.dir;
-		if (this.options.folderSelect === 1 && this.options.editable === 1) {
+		if (this.options.folderSelect === "1" && this.options.editable === true) {
 			this.ajaxFolder();
 		}
 		
@@ -35,8 +35,56 @@ var FbFileUpload = new Class({
 				// hack to reposition the hidden input field over the 'ad' button
 				var c = document.id(this.options.element + '_container');
 				var diff = document.id(this.options.element + '_browseButton').getPosition().y - c.getPosition().y;
-				c.getParent('.fabrikElement').getElement('input[type=file]').getParent().setStyle('top', diff);
+				// $$$ hugh - working on some IE issues
+				var file_element = c.getParent('.fabrikElement').getElement('input[type=file]');
+				if (file_element) {
+					c.getParent('.fabrikElement').getElement('input[type=file]').getParent().setStyle('top', diff);
+				}
 			}
+		}
+		
+		this.watchDeleteButton();
+	},
+	
+	/**
+	 * Single file uploads can allow the user to delee the reference and/or file
+	 */
+	watchDeleteButton: function () {
+		var c = this.getContainer();
+		if (!c) {
+			return;
+		}
+		var b = c.getElement('[data-file]');
+		if (typeOf(b) !== 'null') {
+			b.addEvent('click', function (e) {
+				e.stop();
+				if (confirm(Joomla.JText._('PLG_ELEMENT_FILEUPLOAD_CONFIRM_SOFT_DELETE'))) {
+					new Request({
+						url: '',
+						data: {
+							'option': 'com_fabrik',
+							'format': 'raw',
+							'task': 'plugin.pluginAjax',
+							'plugin': 'fileupload',
+							'method': 'ajax_clearFileReference',
+							'element_id': this.options.id,
+							'formid': this.form.id,
+							'rowid': this.form.options.rowid
+						}
+					}).send();
+					if (confirm(Joomla.JText._('PLG_ELEMENT_FILEUPLOAD_CONFIRM_HARD_DELETE'))) {
+						this.makeDeletedImageField(this.groupid, b.get('data-file')).inject(this.getContainer(), 'inside');
+					}
+					/*
+					b.getNext().destroy();
+					b.destroy();
+					*/
+					var delete_span = document.id(this.element.id + '_delete_span');
+					if (delete_span) {
+						delete_span.destroy();
+					}
+				}
+			}.bind(this));
 		}
 	},
 
@@ -49,7 +97,7 @@ var FbFileUpload = new Class({
 		Fabrik.removeEvent('fabrik.form.submit.start', this.submitEvent);
 	},
 	
-	cloned : function () {
+	cloned: function (c) {
 		// replaced cloned image with default image
 		if (typeOf(this.element.getParent('.fabrikElement')) === 'null') {
 			return;
@@ -58,18 +106,33 @@ var FbFileUpload = new Class({
 		if (i) {
 			i.src = Fabrik.liveSite + this.options.defaultImage;
 		}
+		this.parent(c);
 	},
 
-	decloned : function (groupid) {
+	decloned: function (groupid) {
 		var f = document.id('form_' + this.form.id);
+		
+		// erm fabrik_deletedimages is never created why test?
 		var i = f.getElement('input[name=fabrik_deletedimages[' + groupid + ']');
 		if (typeOf(i) === 'null') {
-			new Element('input', {
-				'type' : 'hidden',
-				'name' : 'fabrik_fileupload_deletedfile[' + groupid + '][]',
-				'value' : this.options.value
-			}).inject(f);
+			this.makeDeletedImageField(groupid, this.options.value).inject(f);
 		}
+	},
+	
+	/**
+	 * Create a hidden input which will tell fabrik, upon form submission, to delete the file
+	 * 
+	 *  @param  int     groupid  group id
+	 *  @param  string  value    file to delete
+	 *  
+	 *  @return  DOM Node - hidden input
+	 */
+	makeDeletedImageField: function (groupid, value) {
+		return new Element('input', {
+			'type' : 'hidden',
+			'name' : 'fabrik_fileupload_deletedfile[' + groupid + '][]',
+			'value' : value
+		});
 	},
 
 	update : function (val) {
@@ -85,9 +148,18 @@ var FbFileUpload = new Class({
 		if (this.options.editable === false) {
 			return;
 		}
-		var c = this.element.getParent('.fabrikSubElementContainer');
+		var a, title;
+		var el = this.getElement();
+		if (typeOf(el) === 'null') {
+			return;
+		}
+		var c = el.getParent('.fabrikSubElementContainer');
 		this.container = c;
-		this.widget = new ImageWidget(c.getElement('canvas'), {
+		var canvas = c.getElement('canvas');
+		if (typeOf(canvas) === 'null') {
+			return;
+		}
+		this.widget = new ImageWidget(canvas, {
 			'cropdim' : {
 				w: this.options.cropwidth,
 				h: this.options.cropheight,
@@ -108,8 +180,8 @@ var FbFileUpload = new Class({
 			url: 'index.php?option=com_fabrik&format=raw&task=plugin.pluginAjax&plugin=fileupload&method=ajax_upload&element_id=' + this.options.elid,
 			max_file_size: this.options.max_file_size + 'kb',
 			unique_names: false,
-			flash_swf_url: '/plugins/element/fileupload/plupload/js/plupload.flash.swf',
-			silverlight_xap_url: '/plugins/element/fileupload/plupload/js/plupload.silverlight.xap',
+			flash_swf_url: this.options.ajax_flash_path,
+			silverlight_xap_url: this.options.ajax_silverlight_path,
 			chunk_size: this.options.ajax_chunk_size + 'kb',
 			multipart: true
 		};
@@ -141,27 +213,38 @@ var FbFileUpload = new Class({
 					var del = new Element('div', {
 						'class' : 'plupload_file_action'
 					}).adopt(new Element('a', {
-						'href' : '#',
-						'style' : 'display:block',
-						events : {
-							'click' : this.pluploadRemoveFile.bindWithEvent(this)
+						'href': '#',
+						'style': 'display:block',
+						events: {
+							'click': function (e) {
+								this.pluploadRemoveFile(e, file);
+							}.bind(this)
 						}
 					}));
-					var a = new Element('a', {
-						'href' : '#',
-						alt : Joomla.JText._('PLG_ELEMENT_FILEUPLOAD_RESIZE'),
-						events : {
-							'click' : this.pluploadResize.bindWithEvent(this)
+					if (this.isImage(file)) {
+						a = new Element('a', {
+							'href' : '#',
+							alt : Joomla.JText._('PLG_ELEMENT_FILEUPLOAD_RESIZE'),
+							events : {
+								'click': function (e) {
+									this.pluploadResize(e);
+								}.bind(this)
+							}
+						});
+						if (this.options.crop) {
+							a.set('html', this.options.resizeButton);
+						} else {
+							a.set('html', this.options.previewButton);
 						}
-					});
-					if (this.options.crop) {
-						a.set('html', this.options.resizeButton);
+						title = new Element('span').set('text', file.name);
 					} else {
-						a.set('html', this.options.previewButton);
+						a = new Element('span');
+						title = new Element('a', {'href': file.url}).set('text', file.name);
 					}
+					
 					var filename = new Element('div', {
 						'class' : 'plupload_file_name'
-					}).adopt([ new Element('span').set('text', file.name), new Element('div', {
+					}).adopt([ title, new Element('div', {
 						'class' : 'plupload_resize',
 						style : 'display:none'
 					}).adopt(a) ]);
@@ -182,11 +265,14 @@ var FbFileUpload = new Class({
 
 		// (3) ON FILE UPLOAD PROGRESS ACTION
 		this.uploader.bind('UploadProgress', function (up, file) {
-			document.id(file.id).getElement('.plupload_file_status').set('text', file.percent + '%');
+			var f = document.id(file.id);
+			if (typeOf(f) !== 'null') {
+				document.id(file.id).getElement('.plupload_file_status').set('text', file.percent + '%');
+			}
 		});
 
 		this.uploader.bind('Error', function (up, err) {
-			fconsole('Error:' + err);
+			fconsole('Plupload Error:' + err.message);
 		});
 
 		this.uploader.bind('ChunkUploaded', function (up, file, response) {
@@ -205,12 +291,18 @@ var FbFileUpload = new Class({
 				document.id(file.id).destroy();
 				return;
 			}
+			var f = document.id(file.id);
+			if (typeOf(f) === 'null') {
+				fconsole('Filuploaded didnt find: ' + file.id);
+				return;
+			}
 			document.id(file.id).getElement('.plupload_resize').show();
 			var resizebutton = document.id(file.id).getElement('.plupload_resize').getElement('a');
-			resizebutton.href = response.uri;
-			resizebutton.id = 'resizebutton_' + file.id;
-			resizebutton.store('filepath', response.filepath);
-			console.log('upload response, ', response);
+			if (resizebutton) {
+				resizebutton.href = response.uri;
+				resizebutton.id = 'resizebutton_' + file.id;
+				resizebutton.store('filepath', response.filepath);
+			}
 			this.widget.setImage(response.uri, response.filepath, file.params);
 			new Element('input', {
 				'type' : 'hidden',
@@ -237,11 +329,32 @@ var FbFileUpload = new Class({
 		// (5) KICK-START PLUPLOAD
 		this.uploader.init();
 	},
+	
+	isImage: function (file) {
+		if (typeOf(file.type) !== 'null') {
+			return file.type === 'image';
+		}
+		var ext = file.name.split('.').getLast().toLowerCase();
+		return ['jpg', 'jpeg', 'png', 'gif'].contains(ext);
+	},
 
-	pluploadRemoveFile : function (e) {
+	pluploadRemoveFile : function (e, file) {
 		e.stop();
 		var id = e.target.getParent().getParent().id.split('_').getLast();// alreadyuploaded_8_13
 		var f = e.target.getParent().getParent().getElement('.plupload_file_name span').get('text');
+		
+		// Get a list of all of the uploaders files except the one to be deleted
+		var newFiles = [];
+		this.uploader.files.each(function (f) {
+			if (f.id !== id) {
+				newFiles.push(f);
+			}
+		});
+		
+		// Update the uploader's files with the new list.
+		this.uploader.files = newFiles;
+		
+		// Send a request to delete the file from the server.
 		new Request({
 			url: '',
 			data: {
@@ -257,7 +370,8 @@ var FbFileUpload = new Class({
 		}).send();
 		var li = e.target.getParent('.plupload_delete');
 		li.destroy();
-		// remove hidden fields as well
+
+		// Remove hidden fields as well
 		if (document.id('id_alreadyuploaded_' + this.options.id + '_' + id)) {
 			document.id('id_alreadyuploaded_' + this.options.id + '_' + id).destroy();
 		}
@@ -289,7 +403,11 @@ var FbFileUpload = new Class({
 				key = key.split('\\').getLast();
 				var f = document.getElements('input[name*=' + key + ']');
 				f = f[1];
-				f.value = JSON.encode(image);
+				// $$$ rob - seems reloading ajax fileupload element in ajax form (e.g. from db join add record)
+				// is producing odd effects where old fileupload object constains info to previously uploaded image?
+				if (typeOf(f) !== 'null') {
+					f.value = JSON.encode(image);
+				}
 			});
 		}
 		return true;
@@ -443,9 +561,7 @@ var ImageWidget = new Class({
 			this.showWin();
 			return;
 		}
-		
 		this.img = Asset.image(uri);
-
 		var el = new Element('img', {
 			src : uri
 		});
@@ -456,59 +572,85 @@ var ImageWidget = new Class({
 		}
 		el.injectInside(document.body).hide();
 
-		(function () {
-			var show, imagew, imageh, imagex, imagey, i;
-			if (!this.images.has(filepath)) {
-				show = false;
-				params = params ? params : new CloneObject(this.imageDefault, true, []);
-				this.images.set(filepath, params);
-				var s = el.getDimensions(true);
-				imagew = s.width;
-				imageh = s.height;
-				
-				// as imagedim is changed when the image is scaled, but we still want to store the original
-				// image dimensions for when we come to re-edit it.
-				// not sure we actually need it - but seems a good idea to have a reference to the original image size
+		var opts = [filepath, params, el];
+		this.periodSetUpFn = this.setUpFn.periodical(500, this, opts);
+	},
+	
+	/**
+	 * Need to periodically run this as on page load timing of loading seems to effect if the Asset is loaded
+	 * If its not loaded then the s.width and height are 0, so use tearDown to control if the function is repeated
+	 * 
+	 *  @since 3.0.7
+	 */
+
+	setUpFn: function (filepath, params, el) {
+		var show, imagew, imageh, imagex, imagey, i;
+		var tearDown = true;
+		if (!this.images.has(filepath)) {
+			show = false;
+			params = params ? params : new CloneObject(this.imageDefault, true, []);
+			this.images.set(filepath, params);
+			var s = el.getDimensions(true);
+			imagew = s.width;
+			imageh = s.height;
+			if (s.width === 0 && s.height === 0) {
+				tearDown = false;
+			}
+			
+			// as imagedim is changed when the image is scaled, but we still want to store the original
+			// image dimensions for when we come to re-edit it.
+			// not sure we actually need it - but seems a good idea to have a reference to the original image size
+			if (params.imagedim) {
 				params.mainimagedim = params.imagedim;
 				params.mainimagedim.w = imagew;
 				params.mainimagedim.h = imageh;
 				imagex = params.imagedim.x;
 				imagey = params.imagedim.y;
 			} else {
-				show = true;
-				i = this.images.get(filepath);
-				imagew = 400;
-				imageh = 400;
-				imagex = i.imagedim.x;
-				imagey = i.imagedim.y;
+				params.mainimagedim = {w: 0, h: 0, x: 0, y: 0};
+				imagex = 0;
+				imagey = 0;
 			}
-
+		} else {
+			show = true;
 			i = this.images.get(filepath);
-			if (this.scaleSlide) {
-				this.scaleSlide.set(i.scale);
-			}
-			if (this.rotateSlide) {
-				this.rotateSlide.set(i.rotation);
-			}
-			if (this.cropperCanvas) {
-				this.cropperCanvas.x = i.cropdim.x;
-				this.cropperCanvas.y = i.cropdim.y;
-				this.cropperCanvas.w = i.cropdim.w;
-				this.cropperCanvas.h = i.cropdim.h;
-			}
-			this.imgCanvas.w = imagew;
-			this.imgCanvas.h = imageh;
-			this.imgCanvas.x = imagex;
-			this.imgCanvas.y = imagey;
-			this.imgCanvas.rotation = i.rotation;
-			this.imgCanvas.scale = i.scale / 100;
-			if (show) {
-				this.showWin();
-			}
+			imagew = 400;
+			imageh = 400;
+			imagex = typeOf(i.imagedim) !== 'null' ? i.imagedim.x : 0;
+			imagey = typeOf(i.imagedim) !== 'null' ? i.imagedim.y : 0;
+		}
 
+		i = this.images.get(filepath);
+		if (this.scaleSlide) {
+			this.scaleSlide.set(i.scale);
+		}
+		if (this.rotateSlide) {
+			this.rotateSlide.set(i.rotation);
+		}
+		if (this.cropperCanvas && i.cropdim) {
+			this.cropperCanvas.x = i.cropdim.x;
+			this.cropperCanvas.y = i.cropdim.y;
+			this.cropperCanvas.w = i.cropdim.w;
+			this.cropperCanvas.h = i.cropdim.h;
+		}
+		this.imgCanvas.w = imagew;
+		this.imgCanvas.h = imageh;
+		this.imgCanvas.x = imagex;
+		this.imgCanvas.y = imagey;
+		this.imgCanvas.rotation = i.rotation;
+		this.imgCanvas.scale = i.scale / 100;
+		if (show) {
+			this.showWin();
+		}
+		if (tearDown) {
 			el.destroy();
-		}.bind(this)).delay(500);
-
+			
+			// Incase ctr + f5 loading of page meant that win was opened
+			if (this.win) {
+				this.win.close();
+			}
+			clearInterval(this.periodSetUpFn);
+		}
 	},
 	
 	makeImgCanvas: function () {

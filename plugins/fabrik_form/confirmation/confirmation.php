@@ -56,9 +56,11 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 
 	protected function clearSession($id)
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$session = JFactory::getSession();
-		$session->clear('com_fabrik.form.' . $id . '.session.on');
-		$session->clear('com_fabrik.form.' . $id . '.session.hash');
+		$session->clear('com_' . $package . '.form.' . $id . '.session.on');
+		$session->clear('com_' . $package . '.form.' . $id . '.session.hash');
 	}
 
 	/**
@@ -73,7 +75,10 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 
 	public function onBeforeStore($params, &$formModel)
 	{
-		if (JRequest::getInt('fabrik_ignorevalidation') === 1 || JRequest::getInt('fabrik_ajax') === 1)
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		if ($input->getInt('fabrik_ignorevalidation') === 1 || $input->getInt('fabrik_ajax') === 1)
 		{
 			// Saving via inline edit - dont want to confirm
 			return true;
@@ -85,7 +90,7 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 			$this->clearSession($formModel->getId());
 			return true;
 		}
-		if (JRequest::getVar('fabrik_confirmation') == 2)
+		if ($input->get('fabrik_confirmation') == 2)
 		{
 			/**
 			 * If we were already on the confirmation page
@@ -93,9 +98,10 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 			 * $$$ hugh - I don't think it really matters,
 			 * 'cos getBottomContent isn't going to be called again
 			 */
-			JRequest::setVar('fabrik_confirmation', 1);
+			$input->set('fabrik_confirmation', 1);
 			return true;
 		}
+
 		// $$$ set flag to stop subsequent onBeforeStore plug-ins from running
 		$this->runAway = true;
 
@@ -105,19 +111,19 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 		// Save the posted form data to the form session, for retrival later
 		$sessionModel = JModel::getInstance('Formsession', 'FabrikFEModel');
 		$sessionModel->setFormId($formModel->getId());
-		$rowid = JRequest::getVar('rowid', 0);
+		$rowid = $input->get('rowid', 0);
 		$sessionModel->setRowId($rowid);
 		$sessionModel->savePage($formModel);
 
 		// Tell the form model that it's data is loaded from the session
 		$session = JFactory::getSession();
-		$session->set('com_fabrik.form.' . $formModel->getId() . '.session.on', true);
-		$session->set('com_fabrik.form.' . $formModel->getId() . '.session.hash', $sessionModel->getHash());
+		$session->set('com_' . $package . '.form.' . $formModel->getId() . '.session.on', true);
+		$session->set('com_' . $package . '.form.' . $formModel->getId() . '.session.hash', $sessionModel->getHash());
 
 		// Set an error so we can reshow the same form for confirmation purposes
 		$formModel->_arErrors['confirmation_required'] = true;
 		$form->error = JText::_('PLG_FORM_CONFIRMATION_PLEASE_CONFIRM_YOUR_DETAILS');
-		$formModel->_editable = false;
+		$formModel->setEditable(false);
 
 		// Clear out unwanted buttons
 		$formParams = $formModel->getParams();
@@ -128,7 +134,7 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 		 * The user has posted the form we need to make a note of this
 		 * for our getBottomContent() function
 		 */
-		JRequest::setVar('fabrik_confirmation', 1);
+		$input->set('fabrik_confirmation', 1);
 
 		// Set the element access to read only??
 		$groups = $formModel->getGroupsHiarachy();
@@ -156,6 +162,9 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 
 	public function getBottomContent($params, $formModel)
 	{
+		$app = JFactory::getApplication();
+		$input = $app->input;
+
 		// If we have already processed the form
 		$this->html = '';
 		if (JRequest::getVar('fabrik_confirmation') == 1)
@@ -163,8 +172,11 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 			$session = JFactory::getSession();
 
 			// Unset this flag
-			JRequest::setVar('fabrik_confirmation', 2);
-			$post = JRequest::get('post', 4);
+			$input->set('fabrik_confirmation', 2);
+
+			$safeHtmlFilter = JFilterInput::getInstance(null, null, 1, 1);
+			$post = $safeHtmlFilter->clean($_POST, 'array');
+
 			/**
 			 * load in the posted values as hidden fields so that if we
 			 * return to the form to edit it it will populate with our data
@@ -243,4 +255,3 @@ class plgFabrik_FormConfirmation extends plgFabrik_Form
 	}
 
 }
-?>

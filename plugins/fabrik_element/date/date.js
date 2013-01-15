@@ -27,7 +27,9 @@ var FbDateTime = new Class({
 	},
 	
 	initialize: function (element, options) {
-		this.parent(element, options);
+		if (!this.parent(element, options)) {
+			return false;
+		}
 		this.hour = '0';
 		this.plugin = 'fabrikdate';
 		this.minute = '00';
@@ -39,7 +41,9 @@ var FbDateTime = new Class({
 	},
 	
 	setUp: function () {
-		if (this.options.editable && !this.options.hidden) {
+		// Was also test on && !options.hidden but that stopped hidden elements from being saved correctly
+		// @see http://fabrikar.com/forums/showthread.php?t=27992
+		if (this.options.editable) {
 			this.watchButtons();
 			if (this.options.typing === false) {
 				this.disableTyping();
@@ -109,9 +113,14 @@ var FbDateTime = new Class({
 		var d = this.setTimeFromField(calendar.date);
 		this.update(d.format('db'));
 		if (this.cal.dateClicked) {
+			this.getDateField().fireEvent('change');
+			if (this.timeButton) {
+				this.getTimeField().fireEvent('change');
+			}
 			this.cal.callCloseHandler();
 		}
 		window.fireEvent('fabrik.date.select', this);
+		Fabrik.fireEvent('fabrik.date.select', this);
 	},
 	
 	calClose: function (calendar) {
@@ -259,7 +268,7 @@ var FbDateTime = new Class({
 			}
 			v = this.cal.date;
 		} else {
-			if (this.options.value === '') {
+			if (this.options.value === '' || this.options.value === null) {
 				return '';
 			}
 			v = new Date.parse(this.options.value);
@@ -349,20 +358,20 @@ var FbDateTime = new Class({
 		}.bind(this));	
 	},
 	
-	addNewEvent : function (action, js) {
+	/*addNewEvent : function (action, js) {
 		if (action === 'load') {
 			this.loadEvents.push(js);
 			this.runLoadEvent(js);
 		} else {
 			if (!this.element) {
-				this.element = $(this.strElement);
+				this.element = document.id(this.strElement);
 			}
 			if (action === 'change') {
 				this.changeEvents.push(js);
 			}
 			this.addNewEventAux(action, js);
 		}
-	},
+	},*/
 
 	/**
 	 * takes a date object or string
@@ -379,6 +388,12 @@ var FbDateTime = new Class({
 			// going to return null, swhich will then blow up in a few lines.
 			date = Date.parse(val);
 			if (date === null) {
+				
+				// Yes, but we still need to clear the fields! (e.g. from reset())
+				this._getSubElements().each(function (subEl) {
+					subEl.value = '';
+				});
+				this.cal.date = '';
 				return;
 			}
 		} else {
@@ -448,10 +463,10 @@ var FbDateTime = new Class({
 		/*if (window.ie) {
 			// when scrolled down the page the offset of the calendar is wrong - this
 			// fixes it
-			var calHeight = $(window.calendar.element).getStyle('height').toInt();
+			var calHeight = document.id(window.calendar.element).getStyle('height').toInt();
 			var u = ie ? event.clientY + document.documentElement.scrollTop : e.pageY;
 			u = u.toInt();
-			$(window.calendar.element).setStyles({
+			document.id(window.calendar.element).setStyles({
 				'top' : u - calHeight + 'px'
 			});
 		}*/
@@ -519,19 +534,19 @@ var FbDateTime = new Class({
 			h.innerHTML = i;
 			h.className = 'fbdateTime-hour';
 			d.appendChild(h);
-			$(h).addEvent('click', function (e) {
+			document.id(h).addEvent('click', function (e) {
 				this.hour = e.target.innerHTML;
 				this.stateTime();
 				this.setActive();
 			}.bind(this));
-			$(h).addEvent('mouseover', function (e) {
+			document.id(h).addEvent('mouseover', function (e) {
 				if (this.hour !== e.target.innerHTML) {
 					e.target.setStyles({
 						background : '#cbeefb'
 					});
 				}
 			}.bind(this));
-			$(h).addEvent('mouseout', function (e) {
+			document.id(h).addEvent('mouseout', function (e) {
 				if (this.hour !== e.target.innerHTML) {
 					h.setStyles({
 						background : this.buttonBg
@@ -560,7 +575,7 @@ var FbDateTime = new Class({
 			h.innerHTML = ':' + (i * 5);
 			h.className = 'fbdateTime-minute';
 			d2.appendChild(h);
-			$(h).addEvent('click', function (e) {
+			document.id(h).addEvent('click', function (e) {
 				this.minute = this.formatMinute(e.target.innerHTML);
 				this.stateTime();
 				this.setActive();
@@ -623,6 +638,7 @@ var FbDateTime = new Class({
 		}
 		Fabrik.fireEvent('fabrik.date.hidetime', this);
 		Fabrik.fireEvent('fabrik.date.select', this);
+		window.fireEvent('fabrik.date.select', this);
 	},
 
 	formatMinute: function (m) {
@@ -690,7 +706,7 @@ var FbDateTime = new Class({
 		
 	},
 
-	cloned : function (c) {
+	cloned: function (c) {
 		this.setUpDone = false;
 		this.hour = 0;
 		delete this.cal;
@@ -706,6 +722,7 @@ var FbDateTime = new Class({
 		this.makeCalendar();
 		this.cal.hide();
 		this.setUp();
+		this.parent(c);
 	}
 });
 

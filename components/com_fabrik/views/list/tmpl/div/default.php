@@ -1,7 +1,7 @@
 <?php if ($this->tablePicker != '') { ?>
 	<div style="text-align:right"><?php echo JText::_('COM_FABRIK_LIST') ?>: <?php echo $this->tablePicker; ?></div>
 <?php } ?>
-<?php if ($this->params->get('show-title', 1)) {?>
+<?php if ($this->getModel()->getParams()->get('show-title', 1)) {?>
 	<h1><?php echo $this->table->label;?></h1>
 <?php }?>
 
@@ -22,20 +22,21 @@ if ($this->showFilters) {
 }?>
 	<div class="boxflex">
 		<div class="fabrikList" id="list_<?php echo $this->table->renderid;?>" >
-		
+
 			<?php
 			$gCounter = 0;
 			foreach ($this->rows as $groupedby => $group) {
-			
 			if ($this->isGrouped) {
 			?>
-			
+
 			<div class="fabrik_groupheading">
 				<a href="#" class="toggle">
 					<?php echo FabrikHelperHTML::image('orderasc.png', 'list', $this->tmpl, JText::_('COM_FABRIK_TOGGLE'));?>
-					<?php echo $this->grouptemplates[$groupedby]; ?> ( <?php echo count($group)?> )
+					<span class="groupTitle">
+						<?php echo $this->grouptemplates[$groupedby]; ?> ( <?php echo count($group)?> )
+					</span>
 				</a>
-			</div>			
+			</div>
 			<?php }?>
 			<div class="fabrik_groupdata">
 				<div class="groupdataMsg">
@@ -51,24 +52,34 @@ if ($this->showFilters) {
 				echo $this->loadTemplate('row');
 		 	}
 		 	?>
-		<?php if ($this->hasCalculations) { ?>
-				<ul class="fabrik_calculations">
-				<?php
-				foreach ($this->calculations as $cal) {
-					echo "<li class=\"fabrik_row___".$el."\">";
-					echo array_key_exists($groupedby, $cal->grouped ) ? $cal->grouped[$groupedby] : $cal->calc;
-					echo  "</li>";
-				}
-				?>
-				</ul>
-			<?php }
+
+			<?php
+			if ($this->hasCalculations)
+			{ ?>
+					<ul class="fabrik_calculations">
+					<?php
+					foreach ($this->calculations as $cal) {
+						echo "<li>";
+						echo array_key_exists($groupedby, $cal->grouped ) ? $cal->grouped[$groupedby] : $cal->calc;
+						echo  "</li>";
+					}
+					?>
+					</ul>
+
+			<?php
+			}
+			?>
+
+			<?php
 			$gCounter++;
 			}?>
+
 		</div>
-		<?php	
+		<?php
 		echo $this->nav;
 		print_r($this->hiddenFields);?>
 	</div>
 </div>
 
 </form>
+<?php echo $this->table->outro;?>

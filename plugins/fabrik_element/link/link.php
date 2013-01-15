@@ -14,13 +14,15 @@ defined('_JEXEC') or die();
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.link
+ * @since       3.0
  */
 
 class plgFabrik_ElementLink extends plgFabrik_Element
 {
 
-	var $hasSubElements = true;
+	public $hasSubElements = true;
 
+	/** @var  string  db table field type */
 	protected $fieldDesc = 'TEXT';
 
 	/**
@@ -32,7 +34,7 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 	 * @return  string	formatted value
 	 */
 
-	function renderListData($data, $oAllRowsData)
+	public function renderListData($data, &$thisRow)
 	{
 		$listModel = $this->getlistModel();
 		$params = $this->getParams();
@@ -48,19 +50,19 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 		{
 			if (array_key_exists('label', $data))
 			{
-				$data = (array) $this->_renderListData($data, $oAllRowsData);
+				$data = (array) $this->_renderListData($data, $thisRow);
 			}
 			else
 			{
 				for ($i = 0; $i < count($data); $i++)
 				{
 					$data[$i] = JArrayHelper::fromObject($data[$i]);
-					$data[$i] = $this->_renderListData($data[$i], $oAllRowsData);
+					$data[$i] = $this->_renderListData($data[$i], $thisRow);
 				}
 			}
 		}
 		$data = json_encode($data);
-		return parent::renderListData($data, $oAllRowsData);
+		return parent::renderListData($data, $thisRow);
 	}
 
 	/**
@@ -73,7 +75,7 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 	 * @return  string  formatted value
 	 */
 
-	protected function _renderListData($data, $oAllRowsData)
+	protected function _renderListData($data, $thisRow)
 	{
 		if (is_string($data))
 		{
@@ -123,7 +125,8 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 				$link = $_lnk;
 			}
 			$w = new FabrikWorker;
-			$link = $listModel->parseMessageForRowHolder($link, JArrayHelper::fromObject($oAllRowsData));
+			$aRow = JArrayHelper::fromObject($thisRow);
+			$link = $listModel->parseMessageForRowHolder($link, $aRow);
 			return $link;
 		}
 		return $data;
@@ -170,7 +173,7 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 		{
 			$value['link'] = $params->get('link_default_url');
 		}
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			$_lbl = trim($value['label']);
 			$_lnk = trim($value['link']);
@@ -220,14 +223,14 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 	/**
 	 * Turn form value into email formatted value
 	 *
-	 * @param   mixed  $value          element value
-	 * @param   array  $data           form data
-	 * @param   int    $repeatCounter  group repeat counter
+	 * @param   mixed  $value          Element value
+	 * @param   array  $data           Form data
+	 * @param   int    $repeatCounter  Group repeat counter
 	 *
 	 * @return  string  email formatted value
 	 */
 
-	protected function _getEmailValue($value)
+	protected function _getEmailValue($value, $data = array(), $repeatCounter = 0)
 	{
 		if (is_string($value))
 		{
@@ -364,13 +367,13 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 				$values[$name]['data']['label'] = array();
 				$values[$name]['data']['link'] = array();
 			}
-			$values[$name]['data']['label'][$c] = $data[0];
-			$values[$name]['data']['link'][$c] = $data[1];
+			$values[$name]['data']['label'][$c] =  JArrayHelper::getValue($data, 'label');
+			$values[$name]['data']['link'][$c] = JArrayHelper::getValue($data, 'link');
 		}
 		else
 		{
-			$values[$name]['data']['label'] = $data[0];
-			$values[$name]['data']['link'] = $data[1];
+			$values[$name]['data']['label'] = JArrayHelper::getValue($data, 'label');
+			$values[$name]['data']['link'] = JArrayHelper::getValue($data, 'link');
 		}
 	}
 
@@ -420,7 +423,7 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 	 * @return  string	value
 	 */
 
-	function getValue($data, $repeatCounter = 0, $opts = array())
+	public function getValue($data, $repeatCounter = 0, $opts = array())
 	{
 		if (!isset($this->defaults))
 		{
@@ -433,17 +436,8 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 			$joinid = $group->join_id;
 			$formModel = $this->getFormModel();
 			$element = $this->getElement();
-			// $$$rob - if no search form data submitted for the search element then the default
-			// selection was being applied instead
-			if (array_key_exists('use_default', $opts) && $opts['use_default'] == false)
-			{
-				$default = '';
-			}
-			else
-			{
-				$default = $this->getDefaultValue($data);
-			}
 
+			$default = $this->getDefaultOnACL($data, $opts);
 			$name = $this->getFullName(false, true, false);
 
 			if ($groupModel->isJoin())
@@ -635,7 +629,7 @@ class plgFabrik_ElementLink extends plgFabrik_Element
 	 * @return  bool
 	 */
 
-	function dataConsideredEmpty($data, $repeatCounter)
+	public function dataConsideredEmpty($data, $repeatCounter)
 	{
 		$data = strip_tags($data);
 		if (trim($data) == '' || $data == '<a target="_self" href=""></a>')

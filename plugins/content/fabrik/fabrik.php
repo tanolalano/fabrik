@@ -1,22 +1,22 @@
 <?php
 /**
  * @package     Joomla.Plugin
- * @subpackage	Content
- * @copyright	Copyright (C) 2005 - 2008 Pollen 8 Design Ltd. All rights reserved.
- * @license		GNU/GPL
+ * @subpackage  Content
+ * @copyright   Copyright (C) 2005 - 2008 Pollen 8 Design Ltd. All rights reserved.
+ * @license     GNU/GPL
  */
 
 // Check to ensure this file is included in Joomla!
-defined( '_JEXEC' ) or die();
+defined('_JEXEC') or die();
 
-jimport( 'joomla.plugin.plugin');
+jimport('joomla.plugin.plugin');
 
 /**
  * Fabrik content plugin - renders forms and tables
  *
  * @package     Joomla.Plugin
- * @subpackage	Content
- * @since 		1.5
+ * @subpackage  Content
+ * @since       1.5
  */
 
 class plgContentFabrik extends JPlugin
@@ -29,9 +29,10 @@ class plgContentFabrik extends JPlugin
 	 * because func_get_args ( void ) returns a copy of all passed arguments NOT references.
 	 * This causes problems with cross-referencing necessary for the observer design pattern.
 	 *
-	 * @param object $subject The object to observe
-	 * @param object $params  The object that holds the plugin parameters
-	 * @since 1.5
+	 * @param   object  &$subject  The object to observe
+	 * @param   object  $params    The object that holds the plugin parameters
+	 *
+	 * @since       1.5
 	 */
 
 	public function plgContentFabrik(&$subject, $params = null)
@@ -40,14 +41,16 @@ class plgContentFabrik extends JPlugin
 	}
 
 	/**
-	 *  prepare content method
+	 *  Prepare content method
 	 *
 	 * Method is called by the view
 	 *
-	 * @param	string	The context of the content being passed to the plugin.
-	 * @param 	object		The article object.  Note $article->text is also available
-	 * @param 	object		The article params
-	 * @param 	int			The 'page' number
+	 * @param   string  $context  The context of the content being passed to the plugin.
+	 * @param   object  &$row     The article object.  Note $article->text is also available
+	 * @param   object  &$params  The article params
+	 * @param   int     $page     The 'page' number
+	 *
+	 * @return  void
 	 */
 
 	public function onContentPrepare($context, &$row, &$params, $page = 0)
@@ -55,7 +58,7 @@ class plgContentFabrik extends JPlugin
 		jimport('joomla.html.parameter');
 		jimport('joomla.filesystem.file');
 
-		//load fabrik language
+		// Load fabrik language
 		$lang = JFactory::getLanguage();
 		$lang->load('com_fabrik', JPATH_BASE . '/components/com_fabrik');
 
@@ -66,64 +69,90 @@ class plgContentFabrik extends JPlugin
 
 		// Get plugin info
 		$plugin = JPluginHelper::getPlugin('content', 'fabrik');
+
 		// $$$ hugh had to rename this, it was stomping on com_content and friends $params
 		// $$$ which is passed by reference to us!
 		$fparams = new JRegistry($plugin->params);
 
-		// simple performance check to determine whether bot should process further
-		$botRegex = $fparams->get('Botregex') != '' ? $fparams->get('Botregex') : 'fabrik';
+		// Simple performance check to determine whether bot should process further
+		$botRegex = $fparams->get('botRegex') != '' ? $fparams->get('botRegex') : 'fabrik';
 
-		if (JString::strpos($row->text, $botRegex) === false) {
+		if (JString::strpos($row->text, $botRegex) === false)
+		{
 			return true;
 		}
 
-		require_once(COM_FABRIK_FRONTEND . '/helpers/parent.php');
-		// $$$ hugh - hacky fix for nasty issue with IE, which (for gory reasons) doesn't like having our JS content
-		// wrapped in P tags.  But the default WYSIWYG editor in J! will automagically wrap P tags around everything.
-		// So let's just look for obvious cases of <p>{fabrik ...}</p>, and replace the P's with DIV's.
-		// Yes, it's hacky, but it'll save us a buttload of support work.
-		$pregex = "/<p>\s*{" .$botRegex ."\s*.*?}\s*<\/p>/i";
+		require_once COM_FABRIK_FRONTEND . '/helpers/parent.php';
+		/* $$$ hugh - hacky fix for nasty issue with IE, which (for gory reasons) doesn't like having our JS content
+		 * wrapped in P tags.  But the default WYSIWYG editor in J! will automagically wrap P tags around everything.
+		 * So let's just look for obvious cases of <p>{fabrik ...}</p>, and replace the P's with DIV's.
+		 * Yes, it's hacky, but it'll save us a buttload of support work.
+		 */
+		$pregex = "/<p>\s*{" . $botRegex . "\s*.*?}\s*<\/p>/i";
 		$row->text = preg_replace_callback($pregex, array($this, 'preplace'), $row->text);
 
 		// $$$ hugh - having to change this to use {[]}
-		$regex = "/{" .$botRegex ."\s*.*?}/i";
+		$regex = "/{" . $botRegex . "\s*.*?}/i";
 		$row->text = preg_replace_callback($regex, array($this, 'replace'), $row->text);
 
 	}
 
-	protected function preplace($match) {
+	/**
+	 * Unwrap placeholder text from possible <p> tags
+	 *
+	 * @param   array  $match  preg matched {fabrik} tag
+	 *
+	 * @return  string
+	 */
+
+	protected function preplace($match)
+	{
 		$match = $match[0];
 		$match = JString::str_ireplace('<p>', '<div>', $match);
 		$match = JString::str_ireplace('</p>', '</div>', $match);
 		return $match;
 	}
 
+	/**
+	 * Parse the {fabrik} tag
+	 *
+	 * @param   array  $match  {fabrik} preg match
+	 *
+	 * @return  string
+	 */
+
 	protected function parse($match)
 	{
 		$match = $match[0];
+
 		// $$$ hugh - see if we can remove formatting added by WYSIWYG editors
 		$match = strip_tags($match);
-		require_once(COM_FABRIK_FRONTEND . '/helpers/parent.php');
-		$w =new FabrikWorker;
+		require_once COM_FABRIK_FRONTEND . '/helpers/parent.php';
+		$w = new FabrikWorker;
 		$match = preg_replace('/\s+/', ' ', $match);
-		// $$$ hugh - only replace []'s in value, not key, so we handle
-		// ranged filters and 'complex' filters
+		/* $$$ hugh - only replace []'s in value, not key, so we handle
+		 * ranged filters and 'complex' filters
+		 */
 		$match2 = array();
-		foreach (explode(" ", $match) as $m) {
-			if (strstr($m, '=')) {
+		foreach (explode(" ", $match) as $m)
+		{
+			if (strstr($m, '='))
+			{
 				list($key, $val) = explode('=', $m);
-				$val = str_replace('[','{', $val);
+				$val = str_replace('[', '{', $val);
 				$val = str_replace(']', '}', $val);
 				$match2[] = $key . '=' . $val;
 			}
-			else {
+			else
+			{
 				$match2[] = $m;
 			}
 		}
 		$match = implode(' ', $match2);
 		$w->replaceRequest($match);
-		// stop [] for ranged filters from being removed
-		//$match = str_replace('{}', '[]', $match);
+
+		// Stop [] for ranged filters from being removed
+		// $match = str_replace('{}', '[]', $match);
 		$match = $w->parseMessageForPlaceHolder($match);
 		return $match;
 	}
@@ -131,13 +160,15 @@ class plgContentFabrik extends JPlugin
 	/**
 	 * the function called from the preg_replace_callback - replace the {} with the correct HTML
 	 *
-	 * @param	string	plug-in match
-	 * @return	unknown
+	 * @param   string  $match  plug-in match
+	 *
+	 * @return  void
 	 */
 
 	protected function replace($match)
 	{
-
+		$app = JFactory::getApplication();
+		$input = $app->input;
 		$match = $match[0];
 		$match = trim($match, "{");
 		$match = trim($match, "}");
@@ -148,15 +179,19 @@ class plgContentFabrik extends JPlugin
 		$user = JFactory::getUser();
 		$usersConfig = JComponentHelper::getParams('com_fabrik');
 		$unused = array();
-		$element = false; // special case if we are wanting to write in an element's data
+
+		// Special case if we are wanting to write in an element's data
+		$element = false;
 		$repeatcounter = 0;
-		$showfilters = JRequest::getVar('showfilters', 1);
-		$clearfilters = JRequest::getVar('clearfilters', 0);
-		$resetfilters = JRequest::getVar('resetfilters', 0);
+
+		// Was defaulting to 1 but that forced filters to show in cal viz even with showfilter=no option turned on
+		$showfilters = $input->get('showfilters', null);
+		$clearfilters = $input->get('clearfilters', 0);
+		$resetfilters = $input->get('resetfilters', 0);
 		$this->origRequestVars = array();
 		$id = 0;
-		$origLayout= JRequest::getVar('layout');
-		$origFFlayout = JRequest::getVar('flayout');
+		$origLayout = $input->get('layout');
+		$origFFlayout = $input->get('flayout');
 		$layoutFound = false;
 		$rowid = 0;
 		$usekey = '';
@@ -166,6 +201,7 @@ class plgContentFabrik extends JPlugin
 		foreach ($match as $m)
 		{
 			$m = explode("=", $m);
+
 			// $$$ hugh - deal with %20 as space in arguments
 			$m[1] = urldecode($m[1]);
 			switch ($m[0])
@@ -179,13 +215,14 @@ class plgContentFabrik extends JPlugin
 				case 'layout':
 					$layoutFound = true;
 					$layout = $m[1];
-					$origLayout = JRequest::getVar('layout');
-					JRequest::setVar('layout', $layout);
+					$origLayout = $input->get('layout');
+					$input->set('layout', $layout);
 					break;
 				case 'row':
 				case 'rowid':
 					$row = $m[1];
-					//when printing the content the rowid can't be passed in the querystring so don't set here
+
+					// When printing the content the rowid can't be passed in the querystring so don't set here
 					if ($row !== '{rowid}')
 					{
 						if ($row == -1)
@@ -193,13 +230,14 @@ class plgContentFabrik extends JPlugin
 							$row = $user->get('id');
 						}
 						$usersConfig->set('rowid', $row);
-						// set the rowid in the session so that print pages can grab it again
+
+						// Set the rowid in the session so that print pages can grab it again
 						$session->set('fabrik.plgcontent.rowid', $row);
 						$rowid = $row;
 					}
 					break;
 				case 'element':
-					//{fabrik view=element list=3 rowid=364 element=fielddatatwo}
+				// {fabrik view=element list=3 rowid=364 element=fielddatatwo}
 					$viewName = 'list';
 					$element = $m[1];
 					break;
@@ -217,51 +255,53 @@ class plgContentFabrik extends JPlugin
 					$showfilters = $m[1];
 					break;
 
-					// $$$ rob for these 2 grab the qs var in priority over the plugin settings
+				// $$$ rob for these 2 grab the qs var in priority over the plugin settings
 				case 'clearfilters':
-					$clearfilters = JRequest::getVar('clearfilters', $m[1]);
+					$clearfilters = $input->get('clearfilters', $m[1]);
 					break;
 				case 'resetfilters':
-					$resetfilters = JRequest::getVar('resetfilters', $m[1]);
+					$resetfilters = $input->get('resetfilters', $m[1]);
 					break;
 				default:
 					if (array_key_exists(1, $m))
 					{
-						//$unused[trim($m[0])] = $m[1];//these are later set as jrequest vars if present in list view
+						// $unused[trim($m[0])] = $m[1];//these are later set as jrequest vars if present in list view
 						$unused[] = trim($m[0]) . '=' . $m[1];
 					}
 			}
 		}
-		//get the rowid in the session so that print pages can use it
+		// Get the rowid in the session so that print pages can use it
 		$rowid = $session->get('fabrik.plgcontent.rowid', $rowid);
 		if ($viewName == 'table')
 		{
-			//some backwards compat with fabrik 2
+			// Some backwards compat with fabrik 2
 			$viewName = 'list';
 		}
-		//moved out of switch as otherwise first plugin to use this will effect all subsequent plugins
-		JRequest::setVar('usekey', $usekey);
-		//$$$rob for list views in category blog layouts when no layout specified in {} the blog layout
-		// was being used to render the list - which was not found which gave a 500 error
+		// Moved out of switch as otherwise first plugin to use this will effect all subsequent plugins
+		$input->set('usekey', $usekey);
+		/* $$$rob for list views in category blog layouts when no layout specified in {} the blog layout
+		 * was being used to render the list - which was not found which gave a 500 error
+		 */
 		if (!$layoutFound)
 		{
-			if (JRequest::getVar('option') === 'com_content' && JRequest::getVar('layout') === 'blog')
+			if ($input->get('option') === 'com_content' && $input->get('layout') === 'blog')
 			{
 				$layout = 'default';
-				JRequest::setVar('layout', $layout);
+				$input->set('layout', $layout);
 			}
 		}
-		// $$$ hugh - added this so the fabrik2article plugin can arrange to have form CSS
-		// included when the article is rendered by com_content, by inserting ...
-		// {fabrik view=form_css id=X layout=foo}
-		// ... at the top of the article.
+		/* $$$ hugh - added this so the fabrik2article plugin can arrange to have form CSS
+		 * included when the article is rendered by com_content, by inserting ...
+		 * {fabrik view=form_css id=X layout=foo}
+		 * ... at the top of the article.
+		 */
 		if ($viewName == 'form_css')
 		{
-			// the getFormCss() call blows up if we don't do this
+			// The getFormCss() call blows up if we don't do this
 			jimport('joomla.filesystem.file');
 			$this->generalIncludes('form');
 			$document = JFactory::getDocument();
-			$viewType	= $document->getType();
+			$viewType = $document->getType();
 			$controller = $this->getController('form', $id);
 			$view = $this->getView($controller, 'form', $id);
 			$model = $this->getModel($controller, 'form', $id);
@@ -270,7 +310,7 @@ class plgContentFabrik extends JPlugin
 				return;
 			}
 			$model->setId($id);
-			$model->_editable = false;
+			$model->setEditable(false);
 			$form = $model->getForm();
 			$listModel = $model->getListModel();
 			$table = $listModel->getTable();
@@ -282,7 +322,7 @@ class plgContentFabrik extends JPlugin
 		$this->generalIncludes($viewName);
 		if ($element !== false)
 		{
-			//special case for rendering element data
+			// Special case for rendering element data
 			$controller = $this->getController('list', $listid);
 			$model = $this->getModel($controller, 'list', $listid);
 			if (!$model)
@@ -318,22 +358,22 @@ class plgContentFabrik extends JPlugin
 			{
 				$element = $element . '_raw';
 			}
-			//$elval = is_object( $row ) ? $row->$element : '';
-			//$defaultdata = array( $name => $elval);
 			// $$$ hugh - need to pass all row data, or calc elements that use {placeholders} won't work
 			$defaultdata = get_object_vars($row);
-			// $$$ hugh - if we don't do this, our passed data gets blown away when render() merges the form data
-			// not sure why, but apparently if you do $foo =& $bar and $bar is NULL ... $foo ends up NULL
-			$activeEl->getFormModel()->_data = $defaultdata;
-			$activeEl->_editable = false;
-			//set row id for things like user element
-			$origRowid = JRequest::getVar('rowid');
-			JRequest::setVar('rowid', $rowid);
+			/* $$$ hugh - if we don't do this, our passed data gets blown away when render() merges the form data
+			 * not sure why, but apparently if you do $foo =& $bar and $bar is NULL ... $foo ends up NULL
+			 */
+			$activeEl->getFormModel()->data = $defaultdata;
+			$activeEl->editable = false;
+
+			// Set row id for things like user element
+			$origRowid = $input->get('rowid');
+			$input->set('rowid', $rowid);
 
 			$defaultdata = (array) $defaultdata;
 			unset($activeEl->defaults);
 			$res = $activeEl->render($defaultdata, $repeatcounter);
-			JRequest::setVar('rowid', $origRowid);
+			$input->set('rowid', $origRowid);
 			return $res;
 		}
 
@@ -342,19 +382,21 @@ class plgContentFabrik extends JPlugin
 			return;
 		}
 
-		$origid = JRequest::getVar('id');
-		$origView = JRequest::getVar('view');
+		$origid = $input->get('id', '', 'string');
+		$origView = $input->get('view');
 
-		//for fabble
-		JRequest::setVar('origid', $origid);
-		JRequest::setVar('origview', $origView);
-		//end for fabble
+		// For fabble
+		$input->set('origid', $origid);
+		$input->set('origview', $origView);
 
-		JRequest::setVar('id', $id);
-		JRequest::setVar('view', $viewName);
-		// $$$ hugh - at least make the $origid available for certain corner cases, like ...
-		// http://fabrikar.com/forums/showthread.php?p=42960#post42960
-		JRequest::setVar('origid', $origid, 'GET', false);
+		$input->set('id', $id);
+		$input->set('view', $viewName);
+
+		/*
+		 * $$$ hugh - at least make the $origid available for certain corner cases, like ...
+		 * http://fabrikar.com/forums/showthread.php?p=42960#post42960
+		 */
+		$input->set('origid', $origid, 'GET', false);
 
 		$document = JFactory::getDocument();
 		$viewType = $document->getType();
@@ -372,10 +414,11 @@ class plgContentFabrik extends JPlugin
 		}
 
 		// Display the view
-		$view->assign('error', $controller->getError());
+		$view->error = $controller->getError();
 		$view->isMambot = true;
 		$displayed = false;
-		// do some view specific code
+
+		// Do some view specific code
 		switch ($viewName)
 		{
 			case 'form_css':
@@ -388,34 +431,34 @@ class plgContentFabrik extends JPlugin
 					JError::raiseWarning(500, 'No id set in fabrik plugin declaration');
 					return;
 				}
-				//$view->setId($id); not for 3.0
 				$model->ajax = true;
 				$model->setId($id);
 
-				//unset($model->groupView);
 				unset($model->groups);
-				//set default values set in plugin declaration
+
+				// Set default values set in plugin declaration
 				// - note cant check if the form model has the key' as its not yet loaded
 				$this->_setRequest($unused);
-				//$$$ rob - flayout is used in form/details view when _isMamot = true
-				JRequest::setVar('flayout', JRequest::getVar('layout'));
-				JRequest::setVar('rowid', $rowid);
+
+				// $$$ rob - flayout is used in form/details view when _isMamot = true
+				$input->set('flayout', $input->get('layout'));
+				$input->set('rowid', $rowid);
 				break;
 			case 'csv':
 			case 'table':
-			case 'list':
-
-				/// $$$ rob 15/02/2011 addded this as otherwise when you filtered on a table with multiple filter set up subsequent tables were showing
-				//the first tables data
-				if (JRequest::getVar('activelistid') == '')
+			case 'list': /* $$$ rob 15/02/2011 addded this as otherwise when you filtered on a table
+						  * with multiple filter set up subsequent tables were showing
+						  * the first tables data
+						  */
+				if ($input->get('activelistid') == '')
 				{
-					JRequest::setVar('activelistid', JRequest::getInt('listid'));
+					$input->set('activelistid', $input->getId('listid'));
 				}
-				JRequest::setVar('listid', $id);
+				$input->set('listid', $id);
 				$this->_setRequest($unused);
-				JRequest::setVar('showfilters', $showfilters);
-				JRequest::setVar('clearfilters', $clearfilters);
-				JRequest::setVar('resetfilters', $resetfilters);
+				$input->set('showfilters', $showfilters);
+				$input->set('clearfilters', $clearfilters);
+				$input->set('resetfilters', $resetfilters);
 
 				if ($id === 0)
 				{
@@ -423,13 +466,19 @@ class plgContentFabrik extends JPlugin
 					return;
 				}
 				$model->setId($id);
+				$model->isMambot = true;
+
+				// Reset this otherwise embedding a list in a list menu page, the embedded list takes the show in list fields from the menu list
+				$input->set('fabrik_show_in_list', array());
 				$model->ajax = 1;
-				$task = JRequest::getVar('task');
-				if (method_exists($controller, $task) && JRequest::getInt('activetableid') == $id)
+				$task = $input->get('task');
+				if (method_exists($controller, $task) && $input->getInt('activetableid') == $id)
 				{
-					//enable delete() of rows
-					//table controller deals with display after tasks is called
-					//set $displayed to true to stop controller running twice
+					/*
+					 * Enable delete() of rows
+					 * list controller deals with display after tasks is called
+					 * set $displayed to true to stop controller running twice
+					 */
 					$displayed = true;
 					ob_start();
 					$controller->$task();
@@ -441,13 +490,13 @@ class plgContentFabrik extends JPlugin
 				break;
 
 			case 'visualization':
-				JRequest::setVar('showfilters', $showfilters);
-				JRequest::setVar('clearfilters', $clearfilters);
-				JRequest::setVar('resetfilters', $resetfilters);
+				$input->set('showfilters', $showfilters);
+				$input->set('clearfilters', $clearfilters);
+				$input->set('resetfilters', $resetfilters);
 				$this->_setRequest($unused);
 				break;
 		}
-		//hack for gallery viz as it may not use the default view
+		// Hack for gallery viz as it may not use the default view
 		$controller->isMambot = true;
 		if (!$displayed)
 		{
@@ -462,50 +511,74 @@ class plgContentFabrik extends JPlugin
 			$result = ob_get_contents();
 			ob_end_clean();
 		}
-		JRequest::setVar('id', $origid);
-		JRequest::setVar('view', $origView);
+		$input->set('id', $origid);
+		$input->set('view', $origView);
 
 		if ($origLayout != '')
 		{
-			JRequest::setVar('layout', $origLayout);
+			$input->set('layout', $origLayout);
 		}
 		if ($origFFlayout != '')
 		{
-			JRequest::setVar('flayout', $origFFlayout);
+			$input->set('flayout', $origFFlayout);
 		}
 		$this->resetRequest();
 		return $result;
 	}
 
+	/**
+	 * Set the input state
+	 *
+	 * @param   array  $unused  values to inject into the application input
+	 *
+	 * @return  void
+	 */
+
 	protected function _setRequest($unused)
 	{
-		// $$$ hugh - in order to allow complex filters to work in lists, like ...
-		// foo___bar[value][]=1 foo___bar[value[]=9 foo___bar[condition]=BETWEEN
-		// we have to build a qs style array structure, using parse_str().
+		$app = JFactory::getApplication();
+		$input = $app->input;
+
+		/*
+		 * $$$ hugh - in order to allow complex filters to work in lists, like ...
+		 * foo___bar[value][]=1 foo___bar[value[]=9 foo___bar[condition]=BETWEEN
+		 *we have to build a qs style array structure, using parse_str().
+		 */
 		$qs_arr = array();
 		$qs_str = implode('&', $unused);
 		parse_str($qs_str, $qs_arr);
 		$this->origRequestVars = array();
 		foreach ($qs_arr as $k => $v)
 		{
-			$origVar = JRequest::getVar($k);
+			$origVar = $input->get($k. '', 'string');
 			$this->origRequestVars[$k] = $origVar;
-			JRequest::setVar($k, $v);
+			$_GET[$k] = $v;
+			$input->set($k, $v);
 		}
-		// $$$ rob set this array here - we will use in the tablefilter::getQuerystringFilters()
-		//code to determine if the filter is a querystring filter or one set from the plugin
-		//if its set from here it becomes sticky and is not cleared from the session. So we basically
-		//treat all filters set up inside {fabrik.....} as prefilters
-		JRequest::setVar('fabrik_sticky_filters', array_keys($qs_arr));
+		/*
+		 * $$$ rob set this array here - we will use in the tablefilter::getQuerystringFilters()
+		 * code to determine if the filter is a querystring filter or one set from the plugin
+		 * if its set from here it becomes sticky and is not cleared from the session. So we basically
+		 * treat all filters set up inside {fabrik.....} as prefilters
+		 */
+		$input->set('fabrik_sticky_filters', array_keys($qs_arr));
 	}
+
+	/**
+	 * Reset the application input
+	 *
+	 * @return  void
+	 */
 
 	protected function resetRequest()
 	{
+		$app = JFactory::getApplication();
+		$input = $app->input;
 		foreach ($this->origRequestVars as $k => $v)
 		{
 			if (!is_null($v))
 			{
-				JRequest::setVar($k, $v);
+				$input->set($k, $v);
 			}
 			else
 			{
@@ -518,11 +591,13 @@ class plgContentFabrik extends JPlugin
 	}
 
 	/**
-	 * get the model
-	 * @param	object	controller
-	 * @param	string	$viewName
-	 * @param	int		id
-	 * @return	mixed	model or false
+	 * Get the model
+	 *
+	 * @param   object  &$controller  controller
+	 * @param   string  $viewName     view name
+	 * @param   int	    $id           item id
+	 *
+	 * @return  mixed	JModel or false
 	 */
 
 	protected function getModel(&$controller, $viewName, $id)
@@ -539,7 +614,7 @@ class plgContentFabrik extends JPlugin
 		{
 			$viewName = 'list';
 		}
-		$prefix= '';
+		$prefix = '';
 		if ($viewName == 'form' || $viewName == 'list')
 		{
 			$prefix = 'FabrikFEModel';
@@ -557,10 +632,13 @@ class plgContentFabrik extends JPlugin
 	}
 
 	/**
-	 * get a view
-	 * @param	object	controller
-	 * @param	string	$viewName
-	 * @param	int		id
+	 * Get a view
+	 *
+	 * @param   object  &$controller  controller
+	 * @param   string  $viewName     view name
+	 * @param   int     $id           item id
+	 *
+	 * @return  JView
 	 */
 
 	protected function getView(&$controller, $viewName, $id)
@@ -575,10 +653,11 @@ class plgContentFabrik extends JPlugin
 	}
 
 	/**
-	 * get the viz plugin name
+	 * Get the viz plugin name
 	 *
-	 * @param	int		$id
-	 * @return	string	viz plugin name
+	 * @param   int  $id  viz id
+	 *
+	 * @return  string	viz plugin name
 	 */
 
 	protected function getPluginVizName($id)
@@ -599,11 +678,12 @@ class plgContentFabrik extends JPlugin
 	}
 
 	/**
-	 * get the controller
+	 * Get the controller
 	 *
-	 * @param	string	$viewName
-	 * @param	int		$id
-	 * @return	object	controller
+	 * @param   string  $viewName  view name
+	 * @param   int	    $id        item id
+	 *
+	 * @return  object  controller
 	 */
 
 	protected function getController($viewName, $id)
@@ -615,16 +695,16 @@ class plgContentFabrik extends JPlugin
 		switch ($viewName)
 		{
 			case 'visualization':
-				$controller = new FabrikControllerVisualization();
+				$controller = new FabrikControllerVisualization;
 				break;
 			case 'form':
 				$controller = new FabrikControllerForm();
 				break;
 			case 'details':
-				$controller = new FabrikControllerDetails();
+				$controller = new FabrikControllerDetails;
 				break;
 			case 'list':
-				// $$$ hugh - had to add [$id] for cases where we have multiple plugins with different tableid's
+			// $$$ hugh - had to add [$id] for cases where we have multiple plugins with different tableid's
 				if (array_key_exists('list', $this->controllers))
 				{
 					if (!array_key_exists($id, $this->controllers['list']))
@@ -634,36 +714,42 @@ class plgContentFabrik extends JPlugin
 				}
 				else
 				{
-					$this->controllers['list'][$id] = new FabrikControllerList();
+					$this->controllers['list'][$id] = new FabrikControllerList;
 				}
 				$controller = $this->controllers['list'][$id];
 				break;
 			case 'package':
-				$controller = new FabrikControllerPackage();
+				$controller = new FabrikControllerPackage;
 				break;
 			default:
-				$controller = new FabrikController();
+				$controller = new FabrikController;
 				break;
 		}
-		//set a cacheId so that the controller grabs/creates unique caches for each form/table rendered
+		// Set a cacheId so that the controller grabs/creates unique caches for each form/table rendered
 		$controller->cacheId = $id;
 		return $controller;
 	}
 
 	/**
-	 * load the required fabrik files
-	 * @param	string	$view
+	 * Load the required fabrik files
+	 *
+	 * @param   string  $view  view name
+	 *
+	 * @return  void
 	 */
 
 	protected function generalIncludes($view)
 	{
-		require_once(COM_FABRIK_FRONTEND . '/controller.php');
-		require_once(COM_FABRIK_FRONTEND . '/controllers/form.php');
-		require_once(COM_FABRIK_FRONTEND . '/controllers/details.php');
-		require_once(COM_FABRIK_FRONTEND . '/controllers/package.php');
-		require_once(COM_FABRIK_FRONTEND . '/controllers/list.php');
-		require_once(COM_FABRIK_FRONTEND . '/controllers/visualization.php');
-		require_once(COM_FABRIK_FRONTEND . '/models/parent.php');
+		$app = JFactory::getApplication();
+		$input = $app->input;
+
+		require_once COM_FABRIK_FRONTEND . '/controller.php';
+		require_once COM_FABRIK_FRONTEND . '/controllers/form.php';
+		require_once COM_FABRIK_FRONTEND . '/controllers/details.php';
+		require_once COM_FABRIK_FRONTEND . '/controllers/package.php';
+		require_once COM_FABRIK_FRONTEND . '/controllers/list.php';
+		require_once COM_FABRIK_FRONTEND . '/controllers/visualization.php';
+		require_once COM_FABRIK_FRONTEND . '/models/parent.php';
 		JTable::addIncludePath(JPATH_ADMINISTRATOR . '/components/com_fabrik/tables');
 		JModel::addIncludePath(COM_FABRIK_FRONTEND . '/models');
 		JModel::addIncludePath(COM_FABRIK_FRONTEND . '/models', 'FabrikFEModel');
@@ -675,12 +761,13 @@ class plgContentFabrik extends JPlugin
 		{
 			JError::raiseError(500, 'Please specify a view in your fabrik {} code');
 		}
-		//$$$rob looks like including the view does something to the layout variable
-		$layout = JRequest::getVar('layout', 'default');
-		require_once(COM_FABRIK_FRONTEND . '/views/' . $view . '/view.html.php');
+
+		// $$$rob looks like including the view does something to the layout variable
+		$layout = $input->get('layout', 'default');
+		require_once COM_FABRIK_FRONTEND . '/views/' . $view . '/view.html.php';
 		if (!is_null($layout))
 		{
-			JRequest::setVar('layout', $layout);
+			$input->set('layout', $layout);
 		}
 	}
 

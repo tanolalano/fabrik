@@ -1,5 +1,7 @@
 <?php
 /**
+ * Plugin element to render facebook open graph activity feed widget
+ *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.facebookactivityfeed
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -18,25 +20,43 @@ require_once JPATH_SITE . '/components/com_fabrik/models/element.php';
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.facebookactivityfeed
+ * @since       3.0
  */
 
 class plgFabrik_ElementFbactivityfeed extends plgFabrik_Element
 {
 
-	var $hasLabel = false;
-
-	protected $fieldDesc = 'INT(%s)';
-
-	protected $fieldSize = '1';
+	/**
+	 * Does the element have a label
+	 *
+	 * @var bool
+	 */
+	protected $hasLabel = false;
 
 	/**
-	 * draws the form element
-	 * @param array data to pre-populate element with
-	 * @param int repeat group counter
-	 * @return string returns element html
+	 * Db table field type
+	 *
+	 * @var  string
+	 */
+	protected $fieldDesc = 'INT(%s)';
+
+	/**
+	 * Db table field size
+	 *
+	 * @var  string
+	 */
+	protected $fieldLength = '1';
+
+	/**
+	 * Draws the form element
+	 *
+	 * @param   array  $data           to pre-populate element with
+	 * @param   int    $repeatCounter  repeat group counter
+	 *
+	 * @return  string  returns element html
 	 */
 
-	function render($data, $repeatCounter = 0)
+	public function render($data, $repeatCounter = 0)
 	{
 		$params = $this->getParams();
 		$str = FabrikHelperHTML::facebookGraphAPI($params->get('opengraph_applicationid'));

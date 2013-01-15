@@ -14,10 +14,18 @@ defined('_JEXEC') or die();
  *
  * @package		Joomla.Plugin
  * @subpackage	Fabrik.element.access
+ * @since       3.0
  */
 
 class plgFabrik_ElementAccess extends plgFabrik_Element
 {
+
+	/**
+	 * If the element 'Include in search all' option is set to 'default' then this states if the
+	 * element should be ignored from search all.
+	 * @var bool  True, ignore in extended search all.
+	 */
+	protected $ignoreSearchAllDefault = true;
 
 	/**
 	 * Manupulates posted form data for insertion into database
@@ -63,7 +71,7 @@ class plgFabrik_ElementAccess extends plgFabrik_Element
 			}
 		}
 		$gtree = $this->getOpts();
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			$row = new stdClass;
 			return $this->renderListData($arSelected[0], $row);

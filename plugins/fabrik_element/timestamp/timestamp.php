@@ -16,12 +16,26 @@ require_once JPATH_SITE . '/components/com_fabrik/models/element.php';
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.timestamp
+ * @since       3.0
  */
 
 class plgFabrik_ElementTimestamp extends plgFabrik_Element
 {
 
-	var $_recordInDatabase = false;
+	/**
+	 * If the element 'Include in search all' option is set to 'default' then this states if the
+	 * element should be ignored from search all.
+	 *
+	 * @var bool  True, ignore in extended search all.
+	 */
+	protected $ignoreSearchAllDefault = true;
+
+	/**
+	 * Does the element's data get recorded in the db
+	 *
+	 * @var bol
+	 */
+	protected $_recordInDatabase = false;
 
 	/**
 	 * Get the element's HTML label
@@ -59,7 +73,7 @@ class plgFabrik_ElementTimestamp extends plgFabrik_Element
 	 * @return  string	elements html
 	 */
 
-	function render($data, $repeatCounter = 0)
+	public function render($data, $repeatCounter = 0)
 	{
 		$name = $this->getHTMLName($repeatCounter);
 		$id = $this->getHTMLId($repeatCounter);
@@ -85,7 +99,8 @@ class plgFabrik_ElementTimestamp extends plgFabrik_Element
 	public function renderListData($data, &$thisRow)
 	{
 		$params = $this->getParams();
-		$data = JHTML::_('date', $data, JText::_($params->get('timestamp_format', 'DATE_FORMAT_LC2')));
+		$tz_offset = $params->get('gmt_or_local', '0') == '0';
+		$data = JHTML::_('date', $data, JText::_($params->get('timestamp_format', 'DATE_FORMAT_LC2')), $tz_offset);
 		return parent::renderListData($data, $thisRow);
 	}
 

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<install type="package" version="1.6">
+<extension type="package" version="2.5">
 	<name>Fabrik Package</name>
 	<packagename>fabrik</packagename>
-	<version>3.0 Alpha</version>
+	<version>3.0.7</version>
 	<url>http://www.joomla.org</url>
 	<packager>Rob Clayburn</packager>
 	<packagerurl>http://www.fabrikar.com</packagerurl>
@@ -122,4 +122,4 @@
 		<file group="fabrik_visualization" id="visualization_slideshow" type="plugin">plg_fabrik_visualization_slideshow_3.0.2.zip</file>
 		
 	</files>
-</install>
+</extension>

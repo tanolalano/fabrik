@@ -1,5 +1,7 @@
 <?php
 /**
+ * Renders a list of connections
+ *
  * @package     Joomla
  * @subpackage  Form
  * @copyright   Copyright (C) 2005 Rob Clayburn. All rights reserved.
@@ -27,20 +29,24 @@ JFormHelper::loadFieldClass('list');
 class JFormFieldConnections extends JFormFieldList
 {
 	/**
-	* Element name
-	*
-	* @access	protected
-	* @var		string
-	*/
-	var	$_name = 'Connections';
+	 * Element name
+	 *
+	 * @var		string
+	 */
+	var $_name = 'Connections';
 
+	/**
+	 * Get list options
+	 *
+	 * @return  array  options
+	 */
 
-	function getOptions()
+	protected function getOptions()
 	{
 
 		// Initialize variables.
 		$options = array();
-		$db	= FabrikWorker::getDbo(true);
+		$db = FabrikWorker::getDbo(true);
 		$query = $db->getQuery(true);
 
 		$query->select('id AS value, description AS text, ' . $db->quoteName('default'));
@@ -67,14 +73,13 @@ class JFormFieldConnections extends JFormFieldList
 	 * Method to get the field input markup.
 	 *
 	 * @return	string	The field input markup.
-	 * @since	1.6
 	 */
 
 	protected function getInput()
 	{
 		if ((int) $this->form->getValue('id') == 0 && $this->value == '')
 		{
-			// default to default connection on new form where no value specified
+			// Default to default connection on new form where no value specified
 			$options = (array) $this->getOptions();
 			foreach ($options as $opt)
 			{
@@ -100,8 +105,8 @@ class JFormFieldConnections extends JFormFieldList
 				}
 			}
 		}
-		return '<input type="hidden" value="' . $this->value . '" name="' . $this->name . '" />'.
-		'<input type="text" value="' . $v . '" name="connection_justalabel" class="readonly" readonly="true" />';
+		return '<input type="hidden" value="' . $this->value . '" name="' . $this->name . '" />' . '<input type="text" value="' . $v
+			. '" name="connection_justalabel" class="readonly" readonly="true" />';
 	}
 
 }

@@ -1,13 +1,11 @@
 <?php
 /**
-* @package     Joomla
-* @subpackage  Form
-* @copyright   Copyright (C) 2005 Rob Clayburn. All rights reserved.
-* @license		GNU General Public License version 2 or later; see LICENSE.txt
-*/
-
-/**
- * display a json loaded window with a repeatble set of sub fields
+ * Display a json loaded window with a repeatble set of sub fields
+ *
+ * @package     Joomla
+ * @subpackage  Form
+ * @copyright   Copyright (C) 2005 Rob Clayburn. All rights reserved.
+ * @license		GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 defined('JPATH_BASE') or die;
@@ -35,13 +33,14 @@ class JFormFieldFabrikModalrepeat extends JFormField
 	 * Method to get the field input markup.
 	 *
 	 * @since	1.6
-	 * 
+	 *
 	 * @return	string	The field input markup.
 	 */
 
 	protected function getInput()
 	{
 		// Initialize variables.
+		$app = JFactory::getApplication();
 		$document = JFactory::getDocument();
 		$options = array();
 		JHTML::stylesheet('administrator/components/com_fabrik/views/fabrikadmin.css');
@@ -71,6 +70,20 @@ class JFormFieldFabrikModalrepeat extends JFormField
 		$feModel = JModel::getInstance($view, 'FabrikFEModel');
 		$feModel->setId($id);
 		$subForm->model = $feModel;
+
+		// Hack for order by elements which we now want to store as ids
+		$v = json_decode($this->value);
+		if (isset($v->order_by))
+		{
+			$formModel = $feModel->getFormModel();
+			foreach ($v->order_by as &$orderBy)
+			{
+				$elementModel = $formModel->getElement($orderBy, true);
+				$orderBy = $elementModel ? $elementModel->getId() : $orderBy;
+			}
+		}
+		$this->value = json_encode($v);
+
 		/*
 		 * end
 		 */
@@ -85,8 +98,9 @@ class JFormFieldFabrikModalrepeat extends JFormField
 		$css = '#' . $fieldSetId . ' { display: none; }';
 		$document->addStyleDeclaration($css);
 
+		$path = 'templates/' . $app->getTemplate() . '/images/menu/';
 		$str[] = '<div id="' . $modalid . '" style="display:none">';
-		$str[] = '<table class="adminlist">';
+		$str[] = '<table class="adminlist ' . $this->element['class'] . '">';
 		$str[] = '<thead><tr class="row0">';
 		$names = array();
 		foreach ($subForm->getFieldset($this->element->getAttribute('name') . '_modal') as $field)
@@ -94,7 +108,7 @@ class JFormFieldFabrikModalrepeat extends JFormField
 			$names[] = $field->element->getAttribute('name');
 			$str[] = '<th>' . $field->getLabel($field->name) . '</th>';
 		}
-		$str[] = '<th></th>';
+		$str[] = '<th><a href="#" class="add"><img src="' . $path . '/icon-16-new.png" alt="' . JText::_('ADD') . '" /></a></th>';
 		$str[] = '</tr></thead>';
 
 		$str[] = '<tbody><tr>';
@@ -102,10 +116,10 @@ class JFormFieldFabrikModalrepeat extends JFormField
 		{
 			$str[] = '<td>' . $field->getInput() . '</td>';
 		}
-		$app = JFactory::getApplication();
-		$path = 'templates/' . $app->getTemplate() . '/images/menu/';
+
+
 		$str[] = '<td><div style="width:35px"><a href="#" class="add"><img src="' . $path . '/icon-16-new.png" alt="' . JText::_('ADD') . '" /></a>';
-		$str[] = '<a href="#" class="remove"><img src="' . $path . '/icon-16-delete.png" alt="' . JText::_('REMOVE') . '" /></div></a>';
+		$str[] = '<a href="#" class="remove"><img src="' . $path . '/icon-16-delete.png" alt="' . JText::_('REMOVE') . '" /></a>';
 		$str[] = '</td>';
 		$str[] = '</tr></tbody>';
 		$str[] = '</table>';
@@ -126,22 +140,32 @@ class JFormFieldFabrikModalrepeat extends JFormField
 		}
 		if (!array_key_exists($this->form->repeatCounter, $modalrepeat[$modalid]))
 		{
+
 			// If loaded as js template then we don't want to repeat this again. (fabrik)
 			$names = json_encode($names);
 			$pane = str_replace('jform_params_', '', $modalid) . '-options';
 			$modalrepeat[$modalid][$this->form->repeatCounter] = true;
 			$script = str_replace('-', '', $modalid) . " = new FabrikModalRepeat('$modalid', $names, '$this->id');";
-			JHTML::script('administrator/components/com_fabrik/models/fields/fabrikmodalrepeat.js', true);
-			$document
-				->addScriptDeclaration(
-					"window.addEvent('domready', function() {
+
+			if (JRequest::getVar('option') === 'com_fabrik')
+			{
+				FabrikHelperHTML::script('administrator/components/com_fabrik/models/fields/fabrikmodalrepeat.js', $script);
+			}
+			else
+			{
+				// Wont work when rendering in admin module page
+				// @TODO test this now that the list and form pages are loading plugins via ajax (18/08/2012)
+				JHTML::script('administrator/components/com_fabrik/models/fields/fabrikmodalrepeat.js', true);
+				$document
+					->addScriptDeclaration(
+						"window.addEvent('domready', function() {
 			" . $script . "
-			if (typeOf($('$pane')) !== 'null') { 
+			if (typeOf($('$pane')) !== 'null') {
 			  $('$pane').getParent().hide();
 			}
 			});");
-			//wont work when rendering in admin module page
-			//FabrikHelperHTML::script('administrator/components/com_fabrik/models/fields/fabrikmodalrepeat.js', $script);
+			}
+
 		}
 		$close = "function(c){" . $modalid . ".onClose(c);}";
 
@@ -156,8 +180,6 @@ class JFormFieldFabrikModalrepeat extends JFormField
 		}
 		$value = htmlspecialchars($this->value, ENT_COMPAT, 'UTF-8');
 		$str[] = '<input type="hidden" name="' . $this->name . '" id="' . $this->id . '" value="' . $value . '" />';
-
-		// Hack hide additional panes generated by nested field set
 
 		return implode("\n", $str);
 	}

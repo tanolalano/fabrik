@@ -23,7 +23,7 @@ var FbVisTimeline = new Class({
 			return newdate.format(dateFormat);
 		}; 
 		
-		var eventSource = new Timeline.DefaultEventSource();
+		this.eventSource = new Timeline.DefaultEventSource();
 
 		// TODO: theme the viz in admin
 		var theme = Timeline.ClassicTheme.create();
@@ -51,7 +51,7 @@ var FbVisTimeline = new Class({
 			bandClone.width = json.bands[b].width;
 			bandClone.intervalUnit = json.bands[b].intervalUnit;
 			bandClone.overview = json.bands[b].overview;
-			bandClone.eventSource = eventSource;
+			bandClone.eventSource = this.eventSource;
 			bandClone.theme = theme;
 			bandTracks.push(Timeline.createBandInfo(bandClone));
 		}
@@ -62,9 +62,60 @@ var FbVisTimeline = new Class({
 			bandTracks[b].highlight = true;
 		}
 	
+		SimileAjax.History.enabled = false;
 		this.tl = Timeline.create(document.id("my-timeline"), bandTracks, this.options.orientation);
 		
-		eventSource.loadJSON(this.json, '');
+		// this.eventSource.loadJSON(this.json, '');
+		
+		this.start = 0;
+		
+		//http://dev.ecicultuurfabriek.nl/administrator/index.php?currentList=43&format=raw&option=com_fabrik&task=visualization.ajax_getEvents&visualizationid=3
+		
+		var data = {
+			'option': 'com_fabrik',
+			'format': 'raw',
+			'task': 'ajax_getEvents',
+			'view': 'visualization',
+			'visualizationid': this.options.id,
+			'currentList': this.options.currentList,
+			setListRefFromRequest: 1,
+			listref: this.options.listRef
+		};
+	
+		if (this.options.admin) {
+			data.task = 'visualization.ajax_getEvents';
+		} else {
+			data.controller = 'visualization.timeline';
+		}
+		this.start = 0;
+		this.counter = new Element('div.timelineTotals').inject(document.id("my-timeline"), 'before');
+		this.counter.set('text', 'loading');
+		this.ajax = new Request.JSON({
+			url: 'index.php',
+			data: data,
+			onSuccess: function (json) {
+				this.start = this.start + this.options.step;
+				if (this.start >= json.fabrik.total) {
+					this.counter.set('text', 'loaded ' + json.fabrik.total);
+				} else {
+					this.counter.set('text', 'loading ' + this.start + ' / ' + json.fabrik.total);
+				}
+				
+				this.eventSource.loadJSON(json.timeline.events, '');
+				if (json.fabrik.done.toInt() === 0) {
+					this.ajax.options.data.start = json.fabrik.next;
+					this.ajax.options.data.currentList = json.fabrik.currentList;
+					this.ajax.send();
+				}
+			}.bind(this)
+		});
+		
+		Fabrik.addEvent('fabrik.advancedSearch.submit', function (e) {
+			console.log('cancel ajax');
+			this.ajax.cancel();
+		}.bind(this));
+		
+		this.ajax.send();
 
 		window.addEvent('resize', function () {
 			if (this.resizeTimerID === null) {
@@ -154,6 +205,14 @@ var FbVisTimeline = new Class({
 		var newdate = new Date(this.cal.date.getTime() - (this.cal.date.getTimezoneOffset() * 60000));
 		//this.tl.getBand(0).setCenterVisibleDate(newdate);
 		this.tl.getBand(0).scrollToCenter(newdate);
+		
+	},
+	
+	/**
+	 * Ajax advanced search filter called
+	 * @TODO implement this 
+	 */
+	submit: function () {
 		
 	}
 });

@@ -1,5 +1,7 @@
 <?php
 /**
+ * Access point to render Fabrik component
+ *
  * @package     Joomla
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -107,11 +109,12 @@ else
 /**
  * Create the controller if the task is in the form view.task then get
  * the specific controller for that class - otherwse use $controller to load
- * required controller class 
+ * required controller class
  */
 if (strpos(JRequest::getCmd('task'), '.') !== false)
 {
-	$controller = array_shift(explode('.', JRequest::getCmd('task')));
+	$controller = explode('.', JRequest::getCmd('task'));
+	$controller = array_shift($controller);
 	$classname = 'FabrikController' . JString::ucfirst($controller);
 	$path = JPATH_COMPONENT . '/controllers/' . $controller . '.php';
 	if (JFile::exists($path))
@@ -120,7 +123,8 @@ if (strpos(JRequest::getCmd('task'), '.') !== false)
 
 		// Needed to process J content plugin (form)
 		JRequest::setVar('view', $controller);
-		$task = array_pop(explode('.', JRequest::getCmd('task')));
+		$task = explode('.', JRequest::getCmd('task'));
+		$task = array_pop($task);
 		$controller = new $classname;
 	}
 	else
@@ -146,29 +150,6 @@ if ($isplugin)
 $app = JFactory::getApplication();
 $package = JRequest::getVar('package', 'fabrik');
 $app->setUserState('com_fabrik.package', $package);
-
-// Web service testing
-JLoader::import('webservice', JPATH_SITE . '/components/com_fabrik/models/');
-if (JRequest::getVar('soap') == 1)
-{
-	$opts = array('driver' => 'soap', 'endpoint' => 'http://webservices.activetickets.com/members/ActiveTicketsMembersServices.asmx?WSDL',
-		'credentials' => array('Clientname' => "SPLFenix", 'LanguageCode' => "nl"));
-
-	$service = FabrikWebService::getInstance($opts);
-
-	$params = $opts['credentials'];
-	$params['From'] = JFactory::getDate()->toISO8601();
-	$params['To'] = JFactory::getDate('next year')->toISO8601();
-	$params['IncludePrices'] = true;
-	$params['MemberId'] = 14;
-	$method = JRequest::getVar($method, 'GetProgramList');
-	$program = $service->get($method, $params, '//ProgramList/Program', null);
-
-	$listModel = JModel::getInstance('List', 'FabrikFEModel');
-	$listModel->setId(7);
-	$service->storeLocally($listModel, $program);
-
-}
 
 if (JRequest::getVar('yql') == 1)
 {

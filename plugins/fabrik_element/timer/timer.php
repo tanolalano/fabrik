@@ -19,52 +19,18 @@ require_once JPATH_SITE . '/plugins/fabrik_element/date/date.php';
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.timer
+ * @since       3.0
  */
 
 class plgFabrik_ElementTimer extends plgFabrik_Element
 {
 
-	var $hasSubElements = false;
+	public $hasSubElements = false;
 
-	protected $fieldDesc = 'DATETIME';
+	/** @var  string  db table field type */
+	protected $fieldDesc = 'TIME';
 
-	/**
-	 * Manupulates posted form data for insertion into database
-	 *
-	 * @param   mixed  $val   this elements posted form data
-	 * @param   array  $data  posted form data
-	 *
-	 * @return  mixed
-	 */
-
-	public function storeDatabaseFormat($val, $data)
-	{
-		$return = "0000-00-00 " . $val;
-		$format = '%Y-%m-%d %H:%i:%s';
-		$timebits = FabrikWorker::strToDateTime($return, $format);
-		$return = date('Y-m-d H:i:s', $timebits['timestamp']);
-		return $return;
-	}
-
-	/**
-	 * Shows the data formatted for the list view
-	 *
-	 * @param   string  $data      elements data
-	 * @param   object  &$thisRow  all the data in the lists current row
-	 *
-	 * @return  string	formatted value
-	 */
-
-	public function renderListData($data, &$thisRow)
-	{
-		if ($data != '')
-		{
-			$format = '%Y-%m-%d %H:%i:%s';
-			$timebits = FabrikWorker::strToDateTime($data, $format);
-			$data = date('H:i:s', $timebits['timestamp']);
-		}
-		return $data;
-	}
+	 // Jaanus: works better when using datatype 'TIME' as above and forgetting any date part of data :)
 
 	/**
 	 * Determines if the element can contain data used in sending receipts,
@@ -91,11 +57,9 @@ class plgFabrik_ElementTimer extends plgFabrik_Element
 	{
 		$name = $this->getHTMLName($repeatCounter);
 		$id = $this->getHTMLId($repeatCounter);
-		$params = &$this->getParams();
+		$params = $this->getParams();
 		$element = $this->getElement();
 		$size = $params->get('timer_width', 9);
-
-		//$value = $element->default;
 		$value = $this->getValue($data, $repeatCounter);
 		if ($value == '')
 		{
@@ -121,7 +85,7 @@ class plgFabrik_ElementTimer extends plgFabrik_Element
 			$sizeInfo .= " readonly=\"readonly\" ";
 			$type .= " readonly";
 		}
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			return ($element->hidden == '1') ? "<!-- " . $value . " -->" : $value;
 		}
@@ -147,7 +111,7 @@ class plgFabrik_ElementTimer extends plgFabrik_Element
 		$params = $this->getParams();
 		$id = $this->getHTMLId($repeatCounter);
 		$opts = $this->getElementJSOptions($repeatCounter);
-		$opts->autostart = $params->get('timer_autostart', false);
+		$opts->autostart = (bool)$params->get('timer_autostart', false);
 		$opts = json_encode($opts);
 		JText::script('PLG_ELEMENT_TIMER_START');
 		JText::script('PLG_ELEMENT_TIMER_STOP');
@@ -169,7 +133,8 @@ class plgFabrik_ElementTimer extends plgFabrik_Element
 		$joinSQL = $listModel->_buildQueryJoin();
 		$whereSQL = $listModel->_buildQueryWhere();
 		$name = $this->getFullName(false, false, false);
-		//$$$rob not actaully likely to work due to the query easily exceeding mySQL's  TIMESTAMP_MAX_VALUE value but the query in itself is correct
+
+		// $$$rob not actaully likely to work due to the query easily exceeding mySQL's  TIMESTAMP_MAX_VALUE value but the query in itself is correct
 		return "SELECT DATE_FORMAT(FROM_UNIXTIME(SUM(UNIX_TIMESTAMP($name))), '%H:%i:%s') AS value, $label AS label FROM `$table->db_table_name` $joinSQL $whereSQL";
 	}
 

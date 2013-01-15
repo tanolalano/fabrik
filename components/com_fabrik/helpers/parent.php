@@ -1,5 +1,7 @@
 <?php
 /**
+ * Generic tools that all models use
+ *
  * @package     Joomla
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -21,24 +23,67 @@ defined('_JEXEC') or die();
 class FabrikWorker
 {
 
+	/**
+	 * Fabrik database objects
+	 *
+	 * @var  array
+	 */
 	public static $database = null;
 
+	/**
+	 * Fabrik db connections
+	 *
+	 * @var  array
+	 */
 	public static $connection = null;
 
+	/**
+	 * Plugin manager
+	 *
+	 * @var  object
+	 */
 	public static $pluginManager = null;
 
+	/**
+	 * Strtotime final date format
+	 *
+	 * @var  string
+	 */
 	static protected $finalformat = null;
 
-	/** @var string image file extensions */
+	/**
+	 * Image file extensions
+	 *
+	 * @var  string
+	 */
 	protected $image_extensions_eregi = 'bmp|gif|jpg|jpeg|png';
 
-	/** @var string audio file extensions */
+	/**
+	 * Audio file extensions
+	 *
+	 * @var  string
+	 */
 	protected $audio_extensions_eregi = 'mp3';
 
+	/**
+	 * Audio mime types
+	 *
+	 * @var array
+	 */
 	static protected $audio_mime_types = array('mp3' => 'audio/x-mpeg', 'm4a' => 'audio/x-m4a');
 
+	/**
+	 * Video mime types
+	 *
+	 * @var  array
+	 */
 	static protected $video_mime_types = array('mp4' => 'video/mp4', 'm4v' => 'video/x-m4v', 'mov' => 'video/quicktime');
 
+	/**
+	 * Document mime types
+	 *
+	 * @var  array
+	 */
 	static protected $doc_mime_types = array('pdf' => 'application/pdf', 'epub' => 'document/x-epub');
 
 	/**
@@ -114,14 +159,14 @@ class FabrikWorker
 	}
 
 	/**
-	* Get Podcast Mime type
-	*
-	* @param   string  $file  filename
-	*
-	* @deprecated - doesnt seem to be used
-	*
-	* @return  bool
-	*/
+	 * Get Podcast Mime type
+	 *
+	 * @param   string  $file  filename
+	 *
+	 * @deprecated - doesnt seem to be used
+	 *
+	 * @return  bool
+	 */
 
 	public static function getPodcastMimeType($file)
 	{
@@ -231,6 +276,16 @@ class FabrikWorker
 	public static function specialStrToMySQL($date, $gmt = true)
 	{
 		/**
+		 * $$$ hugh - if date is empty, just return todays date
+		 */
+		if (empty($date))
+		{
+			$d = JFactory::getDate();
+			$date = $d->toSql(!$gmt);
+			return $date;
+		}
+
+		/**
 		 * lets check if we have some special text as per :
 		 * http://php.net/strtotime - this means we can use "+2 week" as a url filter
 		 * do this before we urldecode the date otherwise the + is replaced with ' ';
@@ -320,17 +375,10 @@ class FabrikWorker
 		}
 		// @TODO: some of these arent right for strftime
 		self::$finalformat = $format;
-		$search = array('%d', '%e', '%D', '%j',
-		'%m', '%b',
-		'%Y', '%y',
-		'%g', '%H', '%h',
-		'%i', '%s', '%S', '%M');
+		$search = array('%d', '%e', '%D', '%j', '%m', '%b', '%Y', '%y', '%g', '%H', '%h', '%i', '%s', '%S', '%M');
 
-		$replace = array('(\d{2})', '(\d{1,2})', '(\w{3})', '(\d{1,2})',
-			'(\d{2})', '(\w{3})',
-			'(\d{4})', '(\d{2})',
-			'(\d{1,2})', '(\d{2})', '(\d{2})',
-			'(\d{2})', '(\d{2})', '(\d{2})', '(\d{2})');
+		$replace = array('(\d{2})', '(\d{1,2})', '(\w{3})', '(\d{1,2})', '(\d{2})', '(\w{3})', '(\d{4})', '(\d{2})', '(\d{1,2})', '(\d{2})',
+			'(\d{2})', '(\d{2})', '(\d{2})', '(\d{2})', '(\d{2})');
 
 		$pattern = str_replace($search, $replace, $format);
 		if (!preg_match("#$pattern#", $date, $matches))
@@ -460,19 +508,48 @@ class FabrikWorker
 	 * Check a string is not reserved by Fabrik
 	 *
 	 * @param   string  $str  to check
+	 * @param   bool  $strict  incude things like rowid, listid in the reserved words, defaults to true
 	 *
 	 * @return bool
 	 */
 
-	public static function isReserved($str)
+	public static function isReserved($str, $strict = true)
 	{
-		$_reservedWords = array("task", "view", "layout", "option", "formid", "submit", "ul_max_file_size", "ul_file_types", "ul_directory",
-			"listid", 'rowid', 'itemid', 'adddropdownvalue', 'adddropdownlabel', 'ul_end_dir');
+		$_reservedWords = array("task", "view", "layout", "option", "formid", "submit", "ul_max_file_size", "ul_file_types", "ul_directory", 'adddropdownvalue', 'adddropdownlabel', 'ul_end_dir');
+		/*
+		 * $$$ hugh - a little arbitrary, but need to be able to exlude these so people can create lists from things like
+		 * log files, which include field names like rowid and itemid.  So when saving an element, we now set strict mode
+		 * to false if it's not a new element.
+		 */
+		$_strictWords = array("listid", 'rowid', 'itemid');
+		if ($strict)
+		{
+			$_reservedWords = array_merge($_reservedWords, $_strictWords);
+		}
 		if (in_array(JString::strtolower($str), $_reservedWords))
 		{
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Get the crypt object
+	 *
+	 * @since  3.1
+	 *
+	 * @return  JCrypt
+	 */
+
+	public static function getCrypt()
+	{
+		jimport('joomla.crypt.crypt');
+		jimport('joomla.crypt.key');
+		$config = JFactory::getConfig();
+		$secret = $config->get('secret');
+		$key = new JCryptKey('simple', $secret, $secret);
+		$crypt = new JCrypt(new JCryptCipherSimple, $key);
+		return $crypt;
 	}
 
 	/**
@@ -821,7 +898,8 @@ class FabrikWorker
 	 * @return	array	of file/folder names
 	 */
 
-	public static function fabrikReadDirectory($path, $filter = '.', $recurse = false, $fullpath = false, $aFolderFilter = array(), $foldersOnly = false)
+	public static function fabrikReadDirectory($path, $filter = '.', $recurse = false, $fullpath = false, $aFolderFilter = array(),
+		$foldersOnly = false)
 	{
 		$arr = array();
 		if (!@is_dir($path))
@@ -1134,6 +1212,21 @@ class FabrikWorker
 			$options = array('driver' => $driver, 'host' => $host, 'user' => $user, 'password' => $password, 'database' => $database,
 				'prefix' => $dbprefix);
 			self::$database[$sig] = JDatabase::getInstance($options);
+
+			/*
+			 *  $$$ hugh - testing doing bigSelects stuff here
+			 *  Reason being, some folk on shared hosting plans with very restrictive MySQL
+			 *  setups are hitting the 'big selects' problem on Fabrik internal queries, not
+			 *  just on their List specific queries.  So we need to apply 'big selects' to our
+			 *  default connection as well, essentially enabling it for ALL queries we do.
+			 */
+			$fbConfig = JComponentHelper::getParams('com_fabrik');
+			if ($fbConfig->get('enable_big_selects', 0) == '1')
+			{
+				$fabrikDb = self::$database[$sig];
+				$fabrikDb->setQuery("SET OPTION SQL_BIG_SELECTS=1");
+				$fabrikDb->query();
+			}
 		}
 		return self::$database[$sig];
 	}
@@ -1210,35 +1303,37 @@ class FabrikWorker
 
 	public static function JSONtoData($data, $toArray = false)
 	{
-
-		if (!strstr($data, '{'))
+		if (is_string($data))
 		{
-			// Was messng up date rendering @ http://www.podion.eu/dev2/index.php/2011-12-19-10-33-59/actueel
-			// return $toArray ? (array) $data : $data;
-		}
-		// Repeat elements are concatned with the GROUPSPLITTER - conver to json string  before continuing.
-		if (strstr($data, GROUPSPLITTER))
-		{
-			$data = json_encode(explode(GROUPSPLITTER, $data));
-		}
-		/* half hearted attempt to see if string is acutally json or not.
-		 * issue was that if you try to decode '000123' its turned into '123'
-		 */
-		if (strstr($data, '{') || strstr($data, '['))
-		{
-			$json = json_decode($data);
-
-			// Only works in PHP5.3
-			// $data = (json_last_error() == JSON_ERROR_NONE) ? $json : $data;
-			if (is_null($json))
+			if (!strstr($data, '{'))
 			{
-				/*
-				 * if coming back froma  failed validation - the json string may habe been htmlspecialchars_encoded in
-				 * the form model getGroupView method
-				 */
-				$json = json_decode(stripslashes(htmlspecialchars_decode($data, ENT_QUOTES)));
+				// Was messng up date rendering @ http://www.podion.eu/dev2/index.php/2011-12-19-10-33-59/actueel
+				// return $toArray ? (array) $data : $data;
 			}
-			$data = is_null($json) ? $data : $json;
+			// Repeat elements are concatned with the GROUPSPLITTER - conver to json string  before continuing.
+			if (strstr($data, GROUPSPLITTER))
+			{
+				$data = json_encode(explode(GROUPSPLITTER, $data));
+			}
+			/* half hearted attempt to see if string is acutally json or not.
+			 * issue was that if you try to decode '000123' its turned into '123'
+			 */
+			if (strstr($data, '{') || strstr($data, '['))
+			{
+				$json = json_decode($data);
+
+				// Only works in PHP5.3
+				// $data = (json_last_error() == JSON_ERROR_NONE) ? $json : $data;
+				if (is_null($json))
+				{
+					/*
+					 * if coming back froma  failed validation - the json string may habe been htmlspecialchars_encoded in
+					 * the form model getGroupView method
+					 */
+					$json = json_decode(stripslashes(htmlspecialchars_decode($data, ENT_QUOTES)));
+				}
+				$data = is_null($json) ? $data : $json;
+			}
 		}
 		$data = $toArray ? (array) $data : $data;
 		return $data;
@@ -1275,9 +1370,13 @@ class FabrikWorker
 	 * @return bool
 	 */
 
-	public function isJSON($data)
+	public static function isJSON($data)
 	{
 		if (!is_string($data))
+		{
+			return false;
+		}
+		if (is_numeric($data))
 		{
 			return false;
 		}
@@ -1294,7 +1393,7 @@ class FabrikWorker
 	 * @return bool
 	 */
 
-	public function isEmail($email)
+	public static function isEmail($email)
 	{
 		$conf = JFactory::getConfig();
 		$mail = JFactory::getMailer();
@@ -1432,5 +1531,75 @@ class FabrikWorker
 	{
 		$file = JPATH_LIBRARIES . '/dompdf/dompdf_config.inc.php';
 		return JFile::exists($file);
+	}
+
+	/**
+	 * Get a cachec handler
+	 *
+	 * @since   3.0.7
+	 *
+	 * @return  JCache
+	 */
+
+	public static function getCache()
+	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		$cache = JCache::getInstance('callback',
+				array('defaultgroup' => 'com_' . $package, 'cachebase' => JPATH_BASE . '/cache/', 'lifetime' => ((float) 2 * 60 * 60), 'language' => 'en-GB',
+						'storage' => 'file'));
+		$config = JFactory::getConfig();
+		$doCache = $config->get('caching', 0) > 0 ? true : false;
+		$cache->setCaching($doCache);
+		return $cache;
+	}
+
+	/**
+	 * Get the default values for a given JForm
+	 *
+	 * @param   string  $form  form name e.g. list, form etc
+	 *
+	 * @since   3.0.7
+	 *
+	 * @return  array  key field name, value default value
+	 */
+
+	public static function formDefaults($form)
+	{
+		JForm::addFormPath(JPATH_COMPONENT . '/models/forms');
+		JForm::addFieldPath(JPATH_COMPONENT . '/models/fields');
+		$form = JForm::getInstance('com_fabrik.' . $form, $form, array('control' => '', 'load_data' => true));
+		$fs = $form->getFieldset();
+		$json = array('params' => array());
+
+		foreach ($fs as $name => $field)
+		{
+			if (substr($name, 0, 7) === 'params_') {
+				$name = str_replace('params_', '', $name);
+				$json['params'][$name] = $field->value;
+			}
+			else
+			{
+				$json[$name] = $field->value;
+			}
+		}
+		return $json;
+	}
+
+	/**
+	 * Are we in J3 or using a bootstrap tmpl
+	 *
+	 * @since   3.1
+	 *
+	 * @return  bool
+	 */
+
+	public static function j3()
+	{
+		$app = JFactory::getApplication();
+		$version = new JVersion;
+
+		// Only use template test for testing in 2.5 with my temp J bootstrap template.
+		return ($app->getTemplate() === 'bootstrap' || $version->RELEASE > 2.5);
 	}
 }

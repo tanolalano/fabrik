@@ -1,9 +1,9 @@
 <?php
 /**
- * @package Joomla
- * @subpackage Fabrik
- * @copyright Copyright (C) 2005 Rob Clayburn. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @package     Joomla
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
  */
 
 // No direct access
@@ -14,30 +14,56 @@ jimport('joomla.application.component.view');
 /**
  * View to edit a list.
  *
- * @package		Joomla.Administrator
- * @subpackage	Fabrik
- * @since		1.5
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @since       1.5
  */
+
 class FabrikViewList extends JView
 {
+	/**
+	 * List form
+	 * @var JForm
+	 */
 	protected $form;
+
+	/**
+	 * Item
+	 * @var JTable
+	 */
 	protected $item;
+
+	/**
+	 * View state
+	 * @var object
+	 */
 	protected $state;
+
+	/**
+	 * JS code
+	 * @var string
+	 */
 	protected $js;
 
 	/**
 	 * Display the list
+	 *
+	 * @param   string  $tpl  template
+	 *
+	 * @return  void
 	 */
-	
+
 	public function display($tpl = null)
 	{
 		// Initialiase variables.
-		$this->form	= $this->get('Form');
-		$this->item	= $this->get('Item');
+		$model = $this->getModel();
+		$this->form = $this->get('Form');
+		$this->item = $this->get('Item');
 		$formModel = $this->get('FormModel');
 		$formModel->setId($this->item->form_id);
 		$this->state = $this->get('State');
 		$this->js = $this->get('Js');
+
 		// Check for errors.
 		if (count($errors = $this->get('Errors')))
 		{
@@ -54,27 +80,30 @@ class FabrikViewList extends JView
 		else
 		{
 			$this->order_by = array();
-			$orderbys = FabrikWorker::JSONtoData($this->item->order_by, true);
+			$feListModel = $formModel->getListModel();
+			$orderbys = $feListModel->getOrderBys();
 			foreach ($orderbys as $orderby)
 			{
-				$this->order_by[] = $formModel->getElementList('order_by[]', $orderby, true, false, false);
+				// $name = 'order_by', $default = '', $excludeUnpublished = false, $useStep = false, $incRaw = true, $key = 'name'
+				$this->order_by[] = $formModel->getElementList('order_by[]', $orderby, true, false, false, 'id');
 			}
 			if (empty($this->order_by))
 			{
-				$this->order_by[] = $formModel->getElementList('order_by[]', '', true, false, false);
+				$this->order_by[] = $formModel->getElementList('order_by[]', '', true, false, false, 'id');
 			}
 			$orderDir[] = JHTML::_('select.option', 'ASC', JText::_('COM_FABRIK_ASCENDING'));
 			$orderDir[] = JHTML::_('select.option', 'DESC', JText::_('COM_FABRIK_DESCENDING'));
 
 			$orderdirs = FabrikWorker::JSONtoData($this->item->order_dir, true);
 			$this->order_dir = array();
+			$attribs = 'class="inputbox" size="1" ';
 			foreach ($orderdirs as $orderdir)
 			{
-				$this->order_dir[] = JHTML::_( 'select.genericlist', $orderDir, 'order_dir[]', 'class="inputbox" size="1" ', 'value', 'text', $orderdir);
+				$this->order_dir[] = JHTML::_('select.genericlist', $orderDir, 'order_dir[]', $attribs, 'value', 'text', $orderdir);
 			}
 			if (empty($this->order_dir))
 			{
-				$this->order_dir[] = JHTML::_( 'select.genericlist', $orderDir, 'order_dir[]', 'class="inputbox" size="1" ', 'value', 'text', '');
+				$this->order_dir[] = JHTML::_('select.genericlist', $orderDir, 'order_dir[]', $attribs, 'value', 'text', '');
 			}
 			$this->group_by = $formModel->getElementList('group_by', $this->item->group_by, true, false, false);
 		}
@@ -82,10 +111,13 @@ class FabrikViewList extends JView
 	}
 
 	/**
-	 * show the list's linked forms etc
-	 * @param $tpl
+	 * Show the list's linked forms etc
+	 *
+	 * @param   string  $tpl  template
+	 *
+	 * @return  void
 	 */
-	
+
 	public function showLinkedElements($tpl = null)
 	{
 		$model = $this->getModel('Form');
@@ -96,15 +128,18 @@ class FabrikViewList extends JView
 	}
 
 	/**
-	 * see if the user wants to rename the list/form/groups
-	 * @param string $tpl
+	 * See if the user wants to rename the list/form/groups
+	 *
+	 * @param   string  $tpl  template
+	 *
+	 * @return  void
 	 */
 
 	public function confirmCopy($tpl = null)
 	{
 		$cid = JRequest::getVar('cid', array(0), 'method', 'array');
 		$lists = array();
-		$model= $this->getModel();
+		$model = $this->getModel();
 		foreach ($cid as $id)
 		{
 			$model->setId($id);
@@ -128,13 +163,14 @@ class FabrikViewList extends JView
 			$lists[] = $row;
 		}
 		$this->assign('lists', $lists);
-		FabrikViewList::addConfirmCopyToolbar();
+		$this->addConfirmCopyToolbar();
 		parent::display($tpl);
 	}
 
 	/**
 	 * Add the page title and toolbar.
-	 * @since	1.6
+	 *
+	 * @return  void
 	 */
 
 	protected function addToolbar()
@@ -144,8 +180,8 @@ class FabrikViewList extends JView
 		$user = JFactory::getUser();
 		$userId = $user->get('id');
 		$isNew = ($this->item->id == 0);
-		$checkedOut	= !($this->item->checked_out == 0 || $this->item->checked_out == $user->get('id'));
-		$canDo = FabrikHelper::getActions($this->state->get('filter.category_id'));
+		$checkedOut = !($this->item->checked_out == 0 || $this->item->checked_out == $user->get('id'));
+		$canDo = FabrikAdminHelper::getActions($this->state->get('filter.category_id'));
 		JToolBarHelper::title($isNew ? JText::_('COM_FABRIK_MANAGER_LIST_NEW') : JText::_('COM_FABRIK_MANAGER_LIST_EDIT'), 'list.png');
 		if ($isNew)
 		{
@@ -168,6 +204,7 @@ class FabrikViewList extends JView
 				{
 					JToolBarHelper::apply('list.apply', 'JTOOLBAR_APPLY');
 					JToolBarHelper::save('list.save', 'JTOOLBAR_SAVE');
+
 					// We can save this record, but check the create permission to see if we can return to make a new one.
 					if ($canDo->get('core.create'))
 					{
@@ -187,8 +224,9 @@ class FabrikViewList extends JView
 	}
 
 	/**
-	 * Add the page title and toolbar.
-	 * @since	1.6
+	 * Add the page title and toolbar for the linked elements page
+	 *
+	 * @return  void
 	 */
 
 	protected function addLinkedElementsToolbar()
@@ -201,8 +239,9 @@ class FabrikViewList extends JView
 	}
 
 	/**
-	 * Add the page title and toolbar.
-	 * @since   3.0
+	 * Add the page title and toolbar for the confirm copy page
+	 *
+	 * @return  void
 	 */
 
 	protected function addConfirmCopyToolbar()

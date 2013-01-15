@@ -1,13 +1,15 @@
 <?php
-/*
- * @package Joomla.Administrator
- * @subpackage Fabrik
- * @since		1.6
- * @copyright Copyright (C) 2005 Rob Clayburn. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
-*/
+/**
+ * Admin Element Edit Tmpl
+ *
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @since       3.0
+ */
 
-// no direct access
+// No direct access
 defined('_JEXEC') or die;
 
 JHtml::addIncludePath(JPATH_COMPONENT . '/helpers/html');
@@ -28,8 +30,28 @@ FabrikHelperHTML::script($srcs, $this->js);
 JText::script('COM_FABRIK_SUBOPTS_VALUES_ERROR');
 ?>
 
+<script type="text/javascript">
+
+	Joomla.submitbutton = function(task) {
+		if (task !== 'element.cancel'  && !controller.canSaveForm()) {
+			alert('Please wait - still loading');
+			return false;
+		}
+		var msg = '';
+		var jsEvents = document.getElements('select[name*=js_action]').get('value');
+		if (jsEvents.length > 0 && jsEvents.contains('')) {
+			msg += '\n ' + Joomla.JText._('COM_FABRIK_ERR_ELEMENT_JS_ACTION_NOT_DEFINED');
+		}
+		if (task == 'element.cancel' || (msg === '' && document.formvalidator.isValid(document.id('adminForm')))) {
+
+			Joomla.submitform(task, document.getElementById('adminForm'));
+		} else {
+			alert('<?php echo $this->escape(JText::_('JGLOBAL_VALIDATION_FORM_FAILED'));?>' + msg);
+		}
+	}
+</script>
 <form action="<?php JRoute::_('index.php?option=com_fabrik'); ?>" method="post" name="adminForm" id="adminForm" class="form-validate">
-<?php //?>
+
 <?php if ($this->item->parent_id != 0) {
 	?>
 	<div id="system-message">

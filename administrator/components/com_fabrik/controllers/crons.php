@@ -1,21 +1,25 @@
 <?php
 /**
- * @copyright Copyright (C) 2005 Rob Clayburn. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @since       3.0
  */
 
 // No direct access.
 defined('_JEXEC') or die;
 
-require_once('fabcontrolleradmin.php');
+require_once 'fabcontrolleradmin.php';
 
 /**
  * Cron list controller class.
  *
- * @package		Joomla.Administrator
- * @subpackage	Fabrik
- * @since		1.6
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @since       3.0
  */
+
 class FabrikControllerCrons extends FabControllerAdmin
 {
 	/**
@@ -29,17 +33,30 @@ class FabrikControllerCrons extends FabControllerAdmin
 
 	/**
 	 * Proxy for getModel.
-	 * @since	1.6
+	 *
+	 * @param   string  $name    model name
+	 * @param   string  $prefix  model prefix
+	 * @param   array   $config  Configuration array for model. Optional.
+	 *
+	 * @return  J model
 	 */
 
-	public function &getModel($name = 'Cron', $prefix = 'FabrikModel')
+	public function getModel($name = 'Cron', $prefix = 'FabrikModel', $config = array())
 	{
 		$model = parent::getModel($name, $prefix, array('ignore_request' => true));
 		return $model;
 	}
 
+	/**
+	 * Run the selected cron plugins
+	 *
+	 * @return  void
+	 */
+
 	public function run()
 	{
+		$mailer = JFactory::getMailer();
+		$config = JFactory::getConfig();
 		$db = FabrikWorker::getDbo(true);
 		$cid = JRequest::getVar('cid', array(0), 'method', 'array');
 		JArrayHelper::toInteger($cid);
@@ -55,7 +72,7 @@ class FabrikControllerCrons extends FabControllerAdmin
 		$log = FabTable::getInstance('Log', 'FabrikTable');
 		foreach ($rows as $row)
 		{
-			//load in the plugin
+			// Load in the plugin
 			$rowParams = json_decode($row->params);
 			$log->message = '';
 			$log->id = null;
@@ -66,13 +83,13 @@ class FabrikControllerCrons extends FabControllerAdmin
 			$table->load($row->id);
 			$plugin->setRow($table);
 			$params = $plugin->getParams();
-			$thisListModel = clone($listModel);
-			$thisAdminListModel = clone($adminListModel);
+			$thisListModel = clone ($listModel);
+			$thisAdminListModel = clone ($adminListModel);
 			$tid = (int) $rowParams->table;
 			if ($tid !== 0)
 			{
 				$thisListModel->setId($tid);
-				$log->message .= "\n\n$row->plugin\n listid = ".$thisListModel->getId();//. var_export($table);
+				$log->message .= "\n\n$row->plugin\n listid = " . $thisListModel->getId();
 				if ($plugin->requiresTableData())
 				{
 					$table = $listModel->getTable();
@@ -86,10 +103,20 @@ class FabrikControllerCrons extends FabControllerAdmin
 			}
 			// $$$ hugh - added table model param, in case plugin wants to do further table processing
 			$c = $c + $plugin->process($data, $thisListModel, $thisAdminListModel);
+
+			$log->message = $plugin->getLog() . "\n\n" . $log->message;
 			if ($plugin->getParams()->get('log', 0) == 1)
 			{
-				$log->message = $plugin->getLog() . "\n\n" . $log->message;
 				$log->store();
+			}
+
+			// Email log message
+			$recipient = $plugin->getParams()->get('log_email', '');
+			if ($recipient != '')
+			{
+				$recipient = explode(',', $recipient);
+				$subject = $config->get('sitename') . ': ' . $row->plugin . ' scheduled task';
+				$mailer->sendMail($config->get('mailfrom'), $config->get('fromname'), $recipient, $subject, $log->message, true);
 			}
 		}
 		$this->setRedirect('index.php?option=com_fabrik&view=crons', $c . ' records updated');

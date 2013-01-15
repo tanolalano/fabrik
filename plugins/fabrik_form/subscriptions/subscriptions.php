@@ -280,11 +280,13 @@ class plgFabrik_FormSubscriptions extends plgFabrik_Form
 
 	protected function getNotifyUrl()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$testSite = $this->params->get('subscriptions_test_site', '');
 		$testSiteQs = $this->params->get('subscriptions_test_site_qs', '');
 		$testMode = $this->params->get('subscriptions_testmode', false);
 		$ppurl = ($testMode == 1 && !empty($testSite)) ? $testSite : COM_FABRIK_LIVESITE;
-		$ppurl .= '/index.php?option=com_fabrik&task=plugin.pluginAjax&formid=' . $this->formModel->get('id')
+		$ppurl .= '/index.php?option=com_' . $package . '&task=plugin.pluginAjax&formid=' . $this->formModel->get('id')
 			. '&g=form&plugin=subscriptions&method=ipn';
 		if ($testMode == 1 && !empty($testSiteQs))
 		{
@@ -302,12 +304,14 @@ class plgFabrik_FormSubscriptions extends plgFabrik_Form
 
 	protected function getReturnUrl()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$url = '';
 		$testSite = $this->params->get('subscriptions_test_site', '');
 		$testSiteQs = $this->params->get('subscriptions_test_site_qs', '');
 		$testMode = (bool) $this->params->get('subscriptions_testmode', false);
 
-		$qs = '/index.php?option=com_fabrik&task=plugin.pluginAjax&formid=' . $this->formModel->get('id')
+		$qs = '/index.php?option=com_' . $package . '&task=plugin.pluginAjax&formid=' . $this->formModel->get('id')
 			. '&g=form&plugin=subscriptions&method=thanks&rowid=' . $this->data['rowid'] . '&renderOrder=' . $this->renderOrder;
 
 		if ($testMode)
@@ -340,7 +344,8 @@ class plgFabrik_FormSubscriptions extends plgFabrik_Form
 		$formModel->setId($formid);
 		$params = $formModel->getParams();
 		$ret_msg = (array) $params->get('subscriptions_return_msg');
-		$ret_msg = $ret_msg[JRequest::getInt('renderOrder')];
+		$ret_msg = array_values($ret_msg);
+		$ret_msg = JArrayHelper::getValue($ret_msg, 0);
 		if ($ret_msg)
 		{
 			$w = $this->getWorker();
@@ -419,7 +424,11 @@ class plgFabrik_FormSubscriptions extends plgFabrik_Form
 		$header .= "Content-Type: application/x-www-form-urlencoded\r\n";
 		$header .= "Content-Length: " . JString::strlen($req) . "\r\n\r\n";
 
-		$subscriptionsurl($_POST['test_ipn'] == 1) ? 'ssl://www.sandbox.paypal.com' : 'ssl://www.paypal.com';
+		/* $test = '{"option":"com_fabrik","task":"plugin.pluginAjax","formid":"22","g":"form","plugin":"subscriptions","method":"ipn","XDEBUG_SESSION_START":"shiny","renderOrder":"2","txn_type":"subscr_signup","subscr_id":"I-YU0M7L86HA4T","last_name":"User","residence_country":"GB","mc_currency":"EUR","item_name":"fabrikar.com Monthly Professional  User: professional-recurring-monthly (professional-recurring-monthly)","business":"seller_1229696802_biz@pollen-8.co.uk","recurring":"1","address_street":"1 Main Terrace","verify_sign":"A4ffosV9eZnI9PfOxrUT6ColxyFXA.HeejgAGPEcuVvbmovNY04R-Or-","payer_status":"unverified","test_ipn":"1","payer_email":"buyer_1229696752_per@pollen-8.co.uk","address_status":"confirmed","first_name":"Test","receiver_email":"seller_1229696802_biz@pollen-8.co.uk","address_country_code":"GB","payer_id":"TUCWSC3SURGAN","invoice":"503df6ec03b469.74349485","address_city":"Wolverhampton","reattempt":"1","address_state":"West Midlands","subscr_date":"04:03:28 Aug 29, 2012 PDT","address_zip":"W12 4LQ","custom":"22:6703","charset":"windows-1252","notify_version":"3.5","period3":"1 M","address_country":"United Kingdom","mc_amount3":"40.00","address_name":"Test User","ipn_track_id":"a20981d869e98","Itemid":"77","view":"plugin"}';
+		$test = JArrayHelper::fromObject(json_decode($test));
+		echo "<pre>";print_r($test);exit; */
+
+		$subscriptionsurl = ($_POST['test_ipn'] == 1) ? 'ssl://www.sandbox.paypal.com' : 'ssl://www.paypal.com';
 
 		// Assign posted variables to local variables
 		$item_name = JRequest::getVar('item_name');
@@ -603,6 +612,19 @@ class plgFabrik_FormSubscriptions extends plgFabrik_Form
 		$log->store();
 		jexit();
 	}
+
+	/* public function getBottomContent($params, $formModel)
+	{
+		$this->params = $params;
+		$this->formModel = $formModel;
+	}
+
+	public function getBottomContent_result($c)
+	{
+		$this->renderOrder = $c;
+		echo "notify url = " . $this->getNotifyUrl();;
+		return $this->getNotifyUrl();
+	} */
 
 	/**
 	 * Get the custom IPN class

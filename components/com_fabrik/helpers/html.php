@@ -1,7 +1,9 @@
 <?php
 /**
+ * Fabrik Component HTML Helper
+ *
  * @package     Joomla
- * @subpackage  Fabrik
+ * @subpackage  Fabrik.helpers
  * @copyright   Copyright (C) 2005 Pollen 8 Design Ltd. All rights reserved.
  * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
  */
@@ -17,6 +19,7 @@ require_once COM_FABRIK_FRONTEND . '/helpers/string.php';
 
 // Leave in as for some reason content plugin isnt loading the fabrikworker class
 require_once COM_FABRIK_FRONTEND . '/helpers/parent.php';
+
 /**
  * Fabrik Component HTML Helper
  *
@@ -28,30 +31,97 @@ require_once COM_FABRIK_FRONTEND . '/helpers/parent.php';
 class FabrikHelperHTML
 {
 
+	/**
+	 * Is the Fabrik JavaScript framework loaded
+	 *
+	 * @var  bool
+	 */
 	protected static $framework = null;
 
+	/**
+	 * Is the MLC JavaScript library loaded
+	 *
+	 * @var  bool
+	 */
 	protected static $mcl = null;
 
+	/**
+	 * Array of loaded modal window states
+	 *
+	 * @var array
+	 */
 	protected static $modals = array();
 
+	/**
+	 * Array of loaded tip states
+	 *
+	 * @var  array
+	 */
 	protected static $tips = array();
 
-	protected static $jsscript = false;
+	/**
+	 * Previously loaded js scripts
+	 *
+	 * @var  array
+	 */
+	protected static $scripts = array();
 
+	/**
+	 * CSS files loaded via AJAX
+	 *
+	 * @var  array
+	 */
 	protected static $ajaxCssFiles = array();
 
+	/**
+	 * Has the debug JavaScript been loaded
+	 *
+	 * @var  bool
+	 */
 	protected static $debug = null;
 
+	/**
+	 * Has the auto-complete JavaScript js file been loaded
+	 *
+	 * @var bool
+	 */
 	protected static $autocomplete = null;
 
+	/**
+	 * Has the Facebook API JavaScript file been loaded
+	 *
+	 * @var  bool
+	 */
 	protected static $facebookgraphapi = null;
 
+	/**
+	 * Folders to search for media
+	 *
+	 * @var  array
+	 */
 	protected static $helperpaths = array();
 
+	/**
+	 * Load the modal JavaScript files once
+	 *
+	 * @var  bool
+	 */
 	protected static $modal = null;
 
 	/**
-	 * load up window code - should be run in ajax loaded pages as well (10/07/2012 but not json views)
+	 * Form email link URL
+	 * @var string
+	 */
+	protected static $emailURL = null;
+
+	/**
+	 * Form print link URL
+	 * @var  string
+	 */
+	protected static $printURL = null;
+
+	/**
+	 * Load up window code - should be run in ajax loaded pages as well (10/07/2012 but not json views)
 	 * might be an issue in that we may be re-observing some links when loading in - need to check
 	 *
 	 * @param   string  $selector  element select to auto create windows for  - was default = a.modal
@@ -68,14 +138,14 @@ class FabrikHelperHTML
 	}
 
 	/**
-	* load up window code - should be run in ajax loaded pages as well (10/07/2012 but not json views)
-	* might be an issue in that we may be re-observing some links when loading in - need to check
-	*
-	* @param   string  $selector  element select to auto create windows for  - was default = a.modal
-	* @param   array   $params    window parameters
-	*
-	* @return  void
-	*/
+	 * Load up window code - should be run in ajax loaded pages as well (10/07/2012 but not json views)
+	 * might be an issue in that we may be re-observing some links when loading in - need to check
+	 *
+	 * @param   string  $selector  element select to auto create windows for  - was default = a.modal
+	 * @param   array   $params    window parameters
+	 *
+	 * @return  void
+	 */
 
 	public static function windows($selector = '', $params = array())
 	{
@@ -169,6 +239,8 @@ EOD;
 
 	public static function emailForm($formModel, $template = '')
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
 		$document = JFactory::getDocument();
 		$form = $formModel->getForm();
 		$document->setTitle($form->label);
@@ -207,7 +279,7 @@ EOD;
 	</table>
 	<input name="referrer"
 		value="<?php echo JRequest::getVar('referrer') ?>" type="hidden" /> <input
-		type="hidden" name="option" value="com_fabrik" /> <input type="hidden"
+		type="hidden" name="option" value="com_<?php echo $package; ?>" /> <input type="hidden"
 		name="view" value="emailform" /> <input type="hidden" name="tmpl"
 		value="component" />
 
@@ -236,7 +308,7 @@ EOD;
 <span class="contentheading"><?php echo JText::_('COM_FABRIK_THIS_ITEM_HAS_BEEN_SENT_TO') . ' ' . $to; ?>
 </span>
 <?php
-  }
+		}
 ?>
 <br />
 <br />
@@ -263,19 +335,8 @@ EOD;
 		$form = $formModel->getForm();
 		$table = $formModel->getTable();
 		$status = "status=no,toolbar=no,scrollbars=yes,titlebar=no,menubar=no,resizable=yes,width=400,height=350,directories=no,location=no";
-		$url = COM_FABRIK_LIVESITE . "index.php?option=com_fabrik&tmpl=component&view=details&formid=" . $form->id . "&listid=" . $table->id
-			. "&rowid=" . $rowid . '&iframe=1&print=1';
-		/* $$$ hugh - @TODO - FIXME - if they were using rowid=-1, we don't need this, as rowid has already been transmogrified
-		 * to the correct (PK based) rowid.  but how to tell if original rowid was -1???
-		 */
-		if (JRequest::getVar('usekey') !== null)
-		{
-			$url .= "&usekey=" . JRequest::getVar('usekey');
-		}
-		$link = JRoute::_($url);
+		$link = self::printURL($formModel);
 
-		// $$$ rob for some reason JRoute wasnt doing this ???
-		$link = str_replace('&', '&amp;', $link);
 		if ($params->get('icons', true))
 		{
 			$image = JHtml::_('image', 'system/printButton.png', JText::_('COM_FABRIK_PRINT'), null, true);
@@ -299,6 +360,44 @@ EOD;
 	}
 
 	/**
+	 * Create print URL
+	 *
+	 * @param   object  $formModel  form model
+	 *
+	 * @since   3.0.6
+	 *
+	 * @return  string
+	 */
+
+	public static function printURL($formModel)
+	{
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$form = $formModel->getForm();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		$table = $formModel->getTable();
+		if (isset(self::$printURL))
+		{
+			return self::$printURL;
+		}
+		$url = COM_FABRIK_LIVESITE . "index.php?option=com_' . $package . '&tmpl=component&view=details&formid=" . $form->id . "&listid=" . $table->id
+		. "&rowid=" . $formModel->_rowId . '&iframe=1&print=1';
+		/* $$$ hugh - @TODO - FIXME - if they were using rowid=-1, we don't need this, as rowid has already been transmogrified
+		 * to the correct (PK based) rowid.  but how to tell if original rowid was -1???
+		 */
+		if ($input->get('usekey') !== null)
+		{
+			$url .= "&usekey=" . $input->get('usekey');
+		}
+		$url = JRoute::_($url);
+
+		// $$$ rob for some reason JRoute wasnt doing this ???
+		$url = str_replace('&', '&amp;', $url);
+		self::$printURL = $url;
+		return self::$printURL;
+	}
+
+	/**
 	 * Writes Email icon
 	 *
 	 * @param   object  $formModel  form model
@@ -309,30 +408,11 @@ EOD;
 
 	public static function emailIcon($formModel, $params)
 	{
-		$app = JFactory::getApplication();
-		$config = JFactory::getConfig();
 		$popup = $params->get('popup', 1);
 		if (!$popup)
 		{
 			$status = "status=no,toolbar=no,scrollbars=yes,titlebar=no,menubar=no,resizable=yes,width=400,height=250,directories=no,location=no";
-			if ($app->isAdmin())
-			{
-				$url = 'index.php?option=com_fabrik&task=emailform.display&tmpl=component&formid=' . $formModel->get('id') . '&rowid='
-					. $formModel->getRowId();
-			}
-			else
-			{
-				$url = 'index.php?option=com_fabrik&view=emailform&tmpl=component&formid=' . $formModel->get('id') . '&rowid='
-					. $formModel->getRowId();
-			}
-
-			if (JRequest::getVar('usekey') !== null)
-			{
-				$url .= '&usekey=' . JRequest::getVar('usekey');
-			}
-			$url .= '&referrer=' . urlencode(JFactory::getURI()->toString());
-
-			$link = $url;
+			$link = self::emailURL($formModel);
 
 			if ($params->get('icons', true))
 			{
@@ -345,6 +425,45 @@ EOD;
 			return "<a href=\"#\" onclick=\"window.open('$link','win2','$status;');return false;\"  title=\"" . JText::_('JGLOBAL_EMAIL')
 				. "\">$image</a>\n";
 		}
+	}
+
+	/**
+	 * Create URL for form email button
+	 *
+	 * @param   object  $formModel  form model
+	 *
+	 * @since 3.0.6
+	 *
+	 * @return  string
+	 */
+
+	public static function emailURL($formModel)
+	{
+		if (isset(self::$emailURL))
+		{
+			return self::$emailURL;
+		}
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		if ($app->isAdmin())
+		{
+			$url = 'index.php?option=com_fabrik&task=emailform.display&tmpl=component&formid=' . $formModel->get('id') . '&rowid='
+			. $formModel->getRowId();
+		}
+		else
+		{
+			$url = 'index.php?option=com_' . $package . '&view=emailform&tmpl=component&formid=' . $formModel->get('id') . '&rowid='
+			. $formModel->getRowId();
+		}
+
+		if ($input->get('usekey') !== null)
+		{
+			$url .= '&usekey=' . $input->get('usekey');
+		}
+		$url .= '&referrer=' . urlencode(JFactory::getURI()->toString());
+		self::$emailURL = $url;
+		return self::$emailURL;
 	}
 
 	/**
@@ -362,7 +481,7 @@ EOD;
 		$conditions[] = JHTML::_('select.option', 'AND', JText::_('COM_FABRIK_AND'));
 		$conditions[] = JHTML::_('select.option', 'OR', JText::_('COM_FABRIK_OR'));
 		$name = 'fabrik___filter[list_' . $listid . '][join][]';
-		return JHTML::_('select.genericlist', $conditions, $name, 'class="inputbox" size="1" ', 'value', 'text', $sel);
+		return JHTML::_('select.genericlist', $conditions, $name, 'class="inputbox input-mini" size="1" ', 'value', 'text', $sel);
 	}
 
 	/**
@@ -416,7 +535,8 @@ EOD;
 		// $$$ hugh - moved this to top of function, as we now apply livesite in either usage cases below.
 		if (!strstr($file, COM_FABRIK_LIVESITE))
 		{
-			$file = COM_FABRIK_LIVESITE . '/' . $file;
+			$ls = JString::substr(COM_FABRIK_LIVESITE, -1) == '/' ? COM_FABRIK_LIVESITE : COM_FABRIK_LIVESITE . '/';
+			$file = $ls . $file;
 		}
 		if (self::cssAsAsset())
 		{
@@ -429,9 +549,10 @@ EOD;
 			{
 				if (!strstr($file, 'fabrik.css'))
 				{
-					echo "<script type=\"text/javascript\">var v = new Asset.css('" . $file . "', {});
-				</script>\n";
-
+					$opts = new stdClass;
+					echo "<script type=\"text/javascript\">
+					var v = new Asset.css('" . $file . "', " . json_encode($opts) . ");
+					</script>\n";
 					self::$ajaxCssFiles[] = $file;
 				}
 			}
@@ -456,8 +577,13 @@ EOD;
 
 	public static function cssAsAsset()
 	{
-		return JRequest::getVar('format') == 'raw'
-			|| (JRequest::getVar('tmpl') == 'component') && JRequest::getVar('print') != 1 && JRequest::getVar('format') !== 'pdf';
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$tpl = $input->get('tmpl');
+		$iframe = $input->get('iframe');
+		$print = $input->get('print');
+		$format = $input->get('format');
+		return $input->get('format') == 'raw' || ($tpl == 'component' && $iframe != 1) && $print != 1 && $format !== 'pdf';
 	}
 
 	/**
@@ -587,8 +713,9 @@ EOD;
 
 			if ($editable)
 			{
+				$tmpName = $type === 'checkbox' ? $tag_name . '[' . $i . ']' : $tag_name;
 				$html .= '<label>';
-				$html .= '<input type="' . $type . '" value="' . $k . '" name="' . $tag_name . '" class="fabrikinput" ' . $extra . '/>';
+				$html .= '<input type="' . $type . '" value="' . $k . '" name="' . $tmpName . '" class="fabrikinput" ' . $extra . '/>';
 			}
 			if ($editable || $found)
 			{
@@ -676,8 +803,11 @@ EOD;
 
 				JDEBUG ? JHtml::_('script', 'media/com_fabrik/js/lib/head/head.js') : JHtml::_('script', 'media/com_fabrik/js/lib/head/head.min.js');
 
+				JText::script('COM_FABRIK_LOADING');
 				$navigator = JBrowser::getInstance();
-				if ($navigator->getBrowser() == 'msie')
+				$config = JComponentHelper::getParams('com_fabrik');
+
+				if ($navigator->getBrowser() == 'msie' && $config->get('flexie', true))
 				{
 					$src[] = 'media/com_fabrik/js/lib/flexiejs/flexie.js';
 				}
@@ -692,7 +822,7 @@ EOD;
 
 				self::styleSheet(COM_FABRIK_LIVESITE . 'media/com_fabrik/css/fabrik.css');
 				/* $$$ hugh - setting liveSite needs to use addScriptDecleration, so it loads earlier, otherwise
-				 * in some browsers it's not available when other things (like map biz) are loading
+				 * in some browsers it's not available when other things (like map viz) are loading
 				 */
 				self::addScriptDeclaration("head.ready(function() { Fabrik.liveSite = '" . COM_FABRIK_LIVESITE . "';});");
 
@@ -763,7 +893,8 @@ EOD;
 
 	public static function addScriptDeclaration($script)
 	{
-		if (JRequest::getCmd('format') == 'raw')
+		$app = JFactory::getApplication();
+		if ($app->input->get('format') == 'raw')
 		{
 			echo '<script type="text/javascript">' . $script . '</script>';
 		}
@@ -783,7 +914,8 @@ EOD;
 
 	public static function addStyleDeclaration($style)
 	{
-		if (JRequest::getCmd('format') == 'raw')
+		$app = JFactory::getApplication();
+		if ($app->input->get('format') == 'raw')
 		{
 			echo '<style type="text/css">' . $style . '</script>';
 		}
@@ -802,9 +934,14 @@ EOD;
 
 	public static function inAjaxLoadedPage()
 	{
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+
 		// Are we in fabrik or a content view, if not return false (things like com_config need to load in mootools)
-		$option = JRequest::getCmd('option');
-		if ($option !== 'com_fabrik' && $option !== 'com_content')
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$option = $input->get('option');
+		if ($option !== 'com_' . $package && $option !== 'com_content')
 		{
 			return false;
 		}
@@ -818,8 +955,8 @@ EOD;
 				return false;
 			}
 		}
-		return JRequest::getVar('format') == 'raw'
-			|| (JRequest::getVar('tmpl') == 'component' && JRequest::getInt('iframe') != 1 && JRequest::getVar('format') !== 'pdf');
+		return $input->get('format') == 'raw'
+			|| ($input->get('tmpl') == 'component' && $input->get('iframe') != 1 && $input->get('format') !== 'pdf');
 	}
 
 	/**
@@ -834,14 +971,19 @@ EOD;
 
 	public static function isDebug($enabled = false)
 	{
+		$app = JFactory::getApplication();
 		$config = JComponentHelper::getParams('com_fabrik');
 		if ($enabled && $config->get('use_fabrikdebug') == 0)
 		{
 			return false;
 		}
+		if ($config->get('use_fabrikdebug') == 2)
+		{
+			return true;
+		}
 		$config = JFactory::getConfig();
 		$debug = (int) $config->get('debug');
-		return $debug === 1 || JRequest::getInt('fabrikdebug', 0) === 1;
+		return $debug === 1 || $app->input->get('fabrikdebug', 0) == 1;
 	}
 
 	/**
@@ -859,9 +1001,18 @@ EOD;
 		{
 			return;
 		}
+		if (is_array($onLoad))
+		{
+			$onLoad = implode("\n", $onLoad);
+		}
+		$document = JFactory::getDocument();
+		/*
 		$config = JFactory::getConfig();
 		$debug = $config->get('debug');
-		$ext = $debug || JRequest::getInt('fabrikdebug', 0) === 1 ? '.js' : '-min.js';
+		$ext = $debug || (int) JRequest::getInt('fabrikdebug', 0) === 1 ? '.js' : '-min.js';
+		*/
+		$ext = self::isDebug() ? '.js' : '-min.js';
+
 		$file = (array) $file;
 		$src = array();
 		foreach ($file as $f)
@@ -886,6 +1037,21 @@ EOD;
 				}
 				$f = COM_FABRIK_LIVESITE . $f;
 			}
+
+			/*
+			 * Check if already loaded? Have to do this as multiple head.js calls with identical
+			 * scripts in them stops the $onLoad method from being run see:
+			 * https://github.com/Fabrik/fabrik/issues/412
+			 */
+			if (in_array($f, self::$scripts) && JRequest::getCmd('format') !== 'raw')
+			{
+				continue;
+			}
+			else
+			{
+				self::$scripts[] = $f;
+			}
+
 			if (JRequest::getCmd('format') == 'raw')
 			{
 				$opts = trim($onLoad) !== '' ? '\'onLoad\':function(){' . $onLoad . '}' : '';
@@ -910,7 +1076,15 @@ EOD;
 		}
 		if (!empty($src))
 		{
-			JFactory::getDocument()->addScriptDeclaration('head.js(' . implode(",\n", array_unique($src)) . ');' . "\n");
+			$document->addScriptDeclaration('head.js(' . implode(",\n", array_unique($src)) . ');' . "\n");
+		}
+		else
+		{
+			// Ppreviously loaded $file but with js code in $onLoad which should still be added
+			if (!empty($onLoad))
+			{
+				$document->addScriptDeclaration('head.ready(function () {' . $onLoad . '});' . "\n");
+			}
 		}
 	}
 
@@ -997,15 +1171,17 @@ EOD;
 	public static function debug($content, $title = 'output:')
 	{
 		$config = JComponentHelper::getParams('com_fabrik');
+		$app = JFactory::getApplication();
+		$input = $app->input;
 		if ($config->get('use_fabrikdebug') == 0)
 		{
 			return;
 		}
-		if (JRequest::getBool('fabrikdebug', 0, 'request') != 1)
+		if ($input->getBool('fabrikdebug', 0, 'request') != 1)
 		{
 			return;
 		}
-		if (JRequest::getVar('format') == 'raw')
+		if ($input->get('format') == 'raw')
 		{
 			return;
 		}
@@ -1101,7 +1277,8 @@ EOD;
 		self::autoCompleteScript();
 		$json = self::autoCompletOptions($htmlid, $elementid, $plugin, $opts);
 		$str = json_encode($json);
-		self::addScriptDeclaration("head.ready(function() { new FbAutocomplete('$htmlid', $str); });");
+		$class = $plugin === 'cascadingdropdown' ? 'FabCddAutocomplete' : 'FbAutocomplete';
+		self::addScriptDeclaration("head.ready(function() { new $class('$htmlid', $str); });");
 	}
 
 	/**
@@ -1118,14 +1295,21 @@ EOD;
 	public static function autoCompletOptions($htmlid, $elementid, $plugin = 'field', $opts = array())
 	{
 		$json = new stdClass;
-		$json->url = COM_FABRIK_LIVESITE . 'index.php?option=com_fabrik&format=raw&view=plugin&task=pluginAjax&g=element&element_id=' . $elementid
-			. '&plugin=' . $plugin . '&method=autocomplete_options';
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		$json->url = COM_FABRIK_LIVESITE . 'index.php?option=com_' . $package . '&format=raw&view=plugin&task=pluginAjax&g=element&element_id=' . $elementid
+			. '&plugin=' . $plugin . '&method=autocomplete_options&package=' . $package;
 		$c = JArrayHelper::getValue($opts, 'onSelection');
 		if ($c != '')
 		{
 			$json->onSelections = $c;
 		}
+		foreach ($opts as $k => $v)
+		{
+			$json->$k = $v;
+		}
 		$json->container = JArrayHelper::getValue($opts, 'container', 'fabrikElementContainer');
+		$json->menuclass = JArrayHelper::getValue($opts, 'menuclass', 'auto-complete-container');
 		return $json;
 	}
 
@@ -1224,7 +1408,7 @@ EOD;
 				case 'image':
 					if ($app->isAdmin())
 					{
-						self::$helperpaths[$type][] = JPATH_SITE . '/administrator/templates/' . $template . '/images/';
+						self::$helperpaths[$type][] = JPATH_SITE . DIRECTORY_SEPARATOR . 'administrator/templates/' . $template . '/images/';
 					}
 					self::$helperpaths[$type][] = COM_FABRIK_BASE . 'templates/' . $template . '/html/com_fabrik/' . $view . '/%s/images/';
 					self::$helperpaths[$type][] = COM_FABRIK_BASE . 'templates/' . $template . '/html/com_fabrik/' . $view . '/images/';
@@ -1233,6 +1417,7 @@ EOD;
 					self::$helperpaths[$type][] = COM_FABRIK_BASE . 'media/com_fabrik/images/';
 					self::$helperpaths[$type][] = COM_FABRIK_BASE . 'images/';
 					self::$helperpaths[$type][] = COM_FABRIK_BASE . 'images/stories/';
+					self::$helperpaths[$type][] = COM_FABRIK_BASE . 'media/system/images/';
 					break;
 			}
 		}
@@ -1255,7 +1440,7 @@ EOD;
 
 	public static function getImagePath($file, $type = 'form', $tmpl = '')
 	{
-		$file = JString::ltrim($file, DS);
+		$file = JString::ltrim($file, DIRECTORY_SEPARATOR);
 		$paths = self::addPath('', 'image', $type, true);
 		$src = '';
 		foreach ($paths as $path)
@@ -1291,6 +1476,14 @@ EOD;
 			$properties = array('alt' => $properties);
 		}
 
+		$app = JFactory::getApplication();
+		$version = new JVersion;
+
+		// Only use template test for testing in 2.5 with my temp J bootstrap template.
+		if ($app->getTemplate() === 'bootstrap' || $version->RELEASE > 2.5)
+		{
+			return '<i class="icon-' . JFile::stripExt($file) . '"></i>';
+		}
 		$src = self::getImagePath($file, $type, $tmpl);
 		$src = str_replace(COM_FABRIK_BASE, COM_FABRIK_LIVESITE, $src);
 		$src = str_replace("\\", "/", $src);
@@ -1299,6 +1492,16 @@ EOD;
 		{
 			return $src;
 		}
+
+		if (isset($properties['class']))
+		{
+			$properties['class'] .= ' fabrikImg';
+		}
+		else
+		{
+			$properties['class'] = 'fabrikImg';
+		}
+
 		$bits = array();
 		foreach ($properties as $key => $val)
 		{
@@ -1364,4 +1567,29 @@ EOD;
 		return $grid;
 	}
 
+	/**
+	 * Run Joomla content plugins over text
+	 *
+	 * @since   3.0.7
+	 *
+	 * @param   string  &$text  Content
+	 *
+	 * @return  void
+	 */
+
+	public static function runConentPlugins(&$text)
+	{
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$opt = $input->get('option');
+		$view = $input->get('view');
+		$input->set('option', 'com_content');
+		$input->set('view', 'article');
+		jimport('joomla.html.html.content');
+		$text .= '{emailcloak=off}';
+		$text = JHTML::_('content.prepare', $text);
+		$text = preg_replace('/\{emailcloak\=off\}/', '', $text);
+		$input->set('option', $opt);
+		$input->set('view', $view);
+	}
 }

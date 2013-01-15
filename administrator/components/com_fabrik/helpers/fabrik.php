@@ -1,6 +1,7 @@
 <?php
-
 /**
+ * Fabrik Component Helper
+ *
  * @package     Joomla.Administrator
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -8,7 +9,7 @@
  * @since       1.6
  */
 
-// no direct access
+// No direct access
 defined('_JEXEC') or die('Restricted access');
 
 /**
@@ -18,11 +19,11 @@ defined('_JEXEC') or die('Restricted access');
  * @subpackage  Fabrik
  * @since       1.5
  */
-class FabrikHelper
+class FabrikAdminHelper
 {
 
 	/**
-	 * prepare the date for saving
+	 * Prepare the date for saving
 	 * DATES SHOULD BE SAVED AS UTC
 	 *
 	 * @param   string  &$strdate  publish down date
@@ -240,5 +241,23 @@ class FabrikHelper
 			$text = $filter->clean($text, 'html');
 		}
 		return $text;
+	}
+
+	/**
+	 * Set the layout based on Joomla version
+	 * Allows for loading of new bootstrap admin templates in J3.0+
+	 *
+	 * @param   JView  &$view  current view to setLayout for
+	 *
+	 * @return  void
+	 */
+
+	public static function setViewLayout(&$view)
+	{
+		$v = new JVersion;
+		if ($v->RELEASE > 2.5)
+		{
+			$view->setLayout('bootstrap');
+		}
 	}
 }

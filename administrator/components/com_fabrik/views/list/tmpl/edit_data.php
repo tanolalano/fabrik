@@ -1,5 +1,19 @@
-	<?php echo JHtml::_('tabs.panel', JText::_('COM_FABRIK_GROUP_LABEL_DATA'), 'list-data-panel');?>
-	<?php echo JHtml::_('sliders.start', 'table-sliders-data-'.(int) $this->item->id, array('useCookie'=>0)); ?>
+<?php
+/**
+ * Admin List Edit:data Tmpl
+ *
+ * @package     Joomla.Administrator
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @since       3.0
+ */
+
+// No direct access
+defined('_JEXEC') or die;
+?>
+<?php echo JHtml::_('tabs.panel', JText::_('COM_FABRIK_GROUP_LABEL_DATA'), 'list-data-panel');?>
+<?php echo JHtml::_('sliders.start', 'table-sliders-data-'.(int) $this->item->id, array('useCookie'=>0)); ?>
 
 <?php echo JHtml::_('sliders.panel', JText::_('COM_FABRIK_DATA'), 'data-details'); ?>
 	<fieldset class="adminform">
@@ -54,18 +68,18 @@
 					<?php echo JText::_('COM_FABRIK_GROUP_BY'); ?>
 			</legend>
 			<ul class="adminformlist">
-				<?php foreach ($this->form->getFieldset('grouping') as $field): ?>
-					<?php if (!$field->hidden): ?>
+				<?php foreach ($this->form->getFieldset('grouping') as $field):
+					if (!$field->hidden): ?>
 						<li><?php echo $field->label; ?></li>
 					<?php endif; ?>
-					<li><?php echo $field->input; ?></li>
-				<?php endforeach; ?>
-
-				<?php foreach ($this->form->getFieldset('grouping2') as $field): ?>
-					<?php if (!$field->hidden): ?>
+					<li id="li_<?php echo str_replace(array('[', ']', 'jformparams'), '', $field->name) ?>"><?php echo $field->input; ?></li>
+				<?php
+				endforeach;
+				foreach ($this->form->getFieldset('grouping2') as $field):
+					if (!$field->hidden): ?>
 						<li><?php echo $field->label; ?></li>
 					<?php endif; ?>
-					<li><?php echo $field->input; ?></li>
+					<li id="li_<?php echo str_replace(array('[', ']', 'jformparams'), '', $field->name) ?>"><?php echo $field->input; ?></li>
 				<?php endforeach; ?>
 			</ul>
 		</fieldset>

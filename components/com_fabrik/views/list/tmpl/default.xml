@@ -45,12 +45,12 @@
 			</field>
 		
 			<field name="list_elements" 
-					type="fabrikmodalrepeat" 
+					type="fabrikmodalrepeat"
 					label="COM_FABRIK_LIST_ELEMENTS_LABEL"
 					description="COM_FABRIK_LIST_ELEMENTS_DESC">
 				
 					<fields name="params">
-						<fieldset name="list_elements_modal" repeat="true">
+						<fieldset name="list_elements_modal" repeat="true" modal="true">
 							<field name="show_in_list" 
 								size="30"
 								type="listfields"
@@ -61,12 +61,13 @@
 				</field>
 				
 				<field name="prefilters" 
+					class="prefilters-modal"
 					type="fabrikmodalrepeat" 
 					label="COM_FABRIK_LIST_PREFILTERS_LABEL"
 					description="COM_FABRIK_LIST_PREFILTERS_DESC">
 				
 					<fields name="params">
-						<fieldset name="prefilters_modal" repeat="true">
+						<fieldset name="prefilters_modal" repeat="true" modal="true">
 						
 							<field name="filter-join"
 								type="list"
@@ -78,6 +79,7 @@
 							
 							<field name="filter-fields" 
 								type="listfields"
+								raw="true"
 								valueformat="tableelement"
 								label="COM_FABRIK_LIST_ELEMENTS_HEADING"/>
 						

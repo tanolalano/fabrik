@@ -102,19 +102,24 @@ class plgFabrik_ListPhp_Events extends plgFabrik_List
 	 * @return  bool  false if fail
 	 */
 
-	public function onPreLoadData($params, &$model)
+	public function onDeleteRows($params, &$model)
 	{
 		return $this->doEvaluate($params->get('list_phpevents_ondeleterows'), $model);
 	}
 
 	/**
-	 * Needed to render plugin buttons
+	 * Prep the button if needed
 	 *
-	 * @return  bool
+	 * @param   object  $params  plugin params
+	 * @param   object  &$model  list model
+	 * @param   array   &$args   arguements
+	 *
+	 * @return  bool;
 	 */
 
-	public function button()
+	public function button($params, &$model, &$args)
 	{
+		parent::button($params, $model, $args);
 		return true;
 	}
 

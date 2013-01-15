@@ -63,13 +63,15 @@ class plgFabrik_ListCaneditrow extends plgFabrik_List
 		}
 		$field = str_replace('.', '___', $params->get('caneditrow_field'));
 
+		// If they provided some PHP to eval, we ignore the other settings and just run their code
+		$caneditrow_eval = $params->get('caneditrow_eval', '');
+
 		// $$$ rob if no can edit field selected in admin return true
-		if (trim($field) == '')
+		if (trim($field) == '' && trim($caneditrow_eval) == '')
 		{
 			return true;
 		}
-		// If they provided some PHP to eval, we ignore the other settings and just run their code
-		$caneditrow_eval = $params->get('caneditrow_eval', '');
+
 		if (!empty($caneditrow_eval))
 		{
 			$w = new FabrikWorker;
@@ -87,7 +89,29 @@ class plgFabrik_ListCaneditrow extends plgFabrik_List
 				$field .= '_raw';
 			}
 			$value = $params->get('caneditrow_value');
-			return $data->$field == $value;
+			$operator = $params->get('operator', '=');
+			switch ($operator)
+			{
+				case '=':
+				default:
+					return $data->$field == $value;
+					break;
+				case "!=":
+					return $data->$field != $value;
+					break;
+			}
+
 		}
+	}
+
+	/**
+	 * Get the parameter name that defines the plugins acl access
+	 *
+	 * @return  string
+	 */
+
+	protected function getAclParam()
+	{
+		return 'caneditrow_access';
 	}
 }

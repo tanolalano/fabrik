@@ -163,7 +163,7 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 			}
 			else
 			{
-				$usestatic = ($params->get('fb_osm_staticmap') && !$this->_editable);
+				$usestatic = ($params->get('fb_osm_staticmap') && !$this->isEditable());
 			}
 		}
 		return $usestatic;
@@ -254,7 +254,7 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 		$opts->scalecontrol = $params->get('fb_osm_scalecontrol');
 		$opts->maptypecontrol = $params->get('fb_osm_maptypecontrol');
 		$opts->overviewcontrol = $params->get('fb_osm_overviewcontrol');
-		$opts->drag = ($this->_form->_editable) ? true : false;
+		$opts->drag = ($this->getFormModel()->isEditable()) ? true : false;
 		$opts->staticmap = $this->_useStaticMap() ? true : false;
 		$opts->maptype = $params->get('fb_osm_maptype');
 		$opts->key = $params->get('fb_osm_key');
@@ -296,7 +296,7 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 			}
 			$str = '';
 			//if its not editable and theres no val don't show the map
-			if ((!$this->_editable && $val != '') || $this->_editable)
+			if ((!$this->isEditable() && $val != '') || $this->isEditable())
 			{
 				$str = "<div id=\"" . $id . "_map\" style=\"width:{$w}px; height:{$h}px\"></div>";
 				$str .= "<input type='hidden' name='$name' id='" . $id . "' value='$val'/>";
@@ -305,7 +305,7 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 			{
 				$str .= JText::_('No location selected');
 			}
-			if (!$this->_editable)
+			if (!$this->isEditable())
 			{
 				$str .= $this->_microformat($val);
 			}
@@ -330,7 +330,7 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 		$listModel = $this->getlistModel();
 		$table = &$listModel->getTable();
 		$fullElName = JArrayHelper::getValue($opts, 'alias', "$dbtable" . "___" . $this->_element->name);
-		$str = FabrikString::safeColName($fullElName) . " AS " . $db->nameQuote($fullElName);
+		$str = FabrikString::safeColName($fullElName) . " AS " . $db->quoteName($fullElName);
 		if ($table->db_primary_key == $fullElName)
 		{
 			array_unshift($aFields, $fullElName);
@@ -340,8 +340,8 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 		{
 			$aFields[] = $str;
 			$aAsFields[] = $fullElName;
-			$aFields[] = $db->nameQuote($dbtable) . '.' . $db->nameQuote($this->_element->name) . ' AS ' . $db->nameQuote($fullElName . '_raw');
-			$aAsFields[] = $db->nameQuote($fullElName . '_raw');
+			$aFields[] = $db->quoteName($dbtable) . '.' . $db->quoteName($this->_element->name) . ' AS ' . $db->quoteName($fullElName . '_raw');
+			$aAsFields[] = $db->quoteName($fullElName . '_raw');
 		}
 	}
 
@@ -382,17 +382,7 @@ class plgFabrik_ElementOpenstreetmap extends plgFabrik_Element
 			$element = $this->getElement();
 			$listModel = $this->getlistModel();
 			$params = $this->getParams();
-
-			// $$$rob - if no search form data submitted for the search element then the default
-			// selection was being applied instead
-			if (array_key_exists('use_default', $opts) && $opts['use_default'] == false)
-			{
-				$value = '';
-			}
-			else
-			{
-				$value = $this->getDefaultValue($data);
-			}
+			$value = $this->getDefaultOnACL($data, $opts);
 
 			$table = $listModel->getTable();
 			if ($groupModel->canRepeat() == '1')

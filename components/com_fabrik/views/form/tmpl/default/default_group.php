@@ -1,9 +1,21 @@
+<?php
+/**
+ * Default Form:Group Template
+ *
+ * @package     Joomla
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @since       3.0
+ */
+ ?>
 <ul>
-<?php foreach ($this->elements as $element) {
-	?>
-	<?php if ($this->tipLocation == 'above') {?>
+<?php foreach ($this->elements as $element) :
+	if ($this->tipLocation == 'above' && $element->tipAbove != '') :?>
 		<li><?php echo $element->tipAbove?></li>
-	<?php }?>
+	<?php
+	endif;
+	?>
 	<li <?php echo $element->column;?> class="<?php echo $element->containerClass;?>">
 	<div class="displayBox">
 		<div class="leftCol">
@@ -14,14 +26,16 @@
 			<?php echo $element->element;?>
 		</div>
 
-<?php if ($this->tipLocation == 'side') {
-	echo $element->tipSide;
-}?>
+		<?php if ($this->tipLocation == 'side') :
+			echo $element->tipSide;
+		endif;
+		?>
 		</div>
 	</li>
-	<?php if ($this->tipLocation == 'below') {?>
-	<li><?php echo $element->tipBelow?></li>
-	<?php }?>
-	<?php }?>
+	<?php if ($this->tipLocation == 'below' && $element->tipBelow != '') :?>
+		<li><?php echo $element->tipBelow?></li>
+	<?php endif;
+	endforeach;
+	?>
 </ul>
 <div style="clear:both"></div>

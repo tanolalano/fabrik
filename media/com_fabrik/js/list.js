@@ -54,13 +54,22 @@ var FbListPlugin = new Class({
 	clearFilter: Function.from(),
 
 	watchButton: function () {
-		//do relay for floating menus
+		// Do relay for floating menus
 		if (typeOf(this.options.name) === 'null') {
 			return;
 		}
-		// might need to be this.listform and not document
-		document.addEvent('click:relay(.' + this.options.name + ')', function (e) {
+		// Might need to be this.listform and not document
+		document.addEvent('click:relay(.' + this.options.name + ')', function (e, element) {
+			if (e.rightClick) {
+				return;
+			}
 			e.stop();
+			
+			// Check that the button clicked belongs to this this.list
+			if (element.get('data-list') !== this.list.options.listRef) {
+				return;
+			}
+			e.preventDefault();
 			var row, chx;
 			// if the row button is clicked check its associated checkbox
 			if (e.target.getParent('.fabrik_row')) {
@@ -115,7 +124,7 @@ var FbList = new Class({
 		'canEdit': true,
 		'canView': true,
 		'page': 'index.php',
-		'actionMethod': '',
+		'actionMethod': 'floating',
 		'formels': [], // elements that only appear in the form
 		'data': [], // [{col:val, col:val},...] (depreciated)
 		'rowtemplate': '',
@@ -126,6 +135,7 @@ var FbList = new Class({
 		'popup_height': 300,
 		'popup_offset_x': null,
 		'popup_offset_y': null,
+		'groupByOpts': {},
 		'listRef': '' // e.g. '1_com_fabrik_1'
 	},
 
@@ -140,10 +150,12 @@ var FbList = new Class({
 			'method': this.options.actionMethod,
 			'floatPos': this.options.floatPos
 		});
-		new FbGroupedToggler(this.form);
+		this.groupToggle = new FbGroupedToggler(this.form, this.options.groupByOpts);
 		new FbListKeys(this);
 		if (this.list) {
-			this.tbody = this.list.getElement('tbody');
+			if (this.list.get('tag') === 'table') {
+				this.tbody = this.list.getElement('tbody');
+			}
 			if (typeOf(this.tbody) === 'null') {
 				this.tbody = this.list;
 			}
@@ -337,14 +349,18 @@ var FbList = new Class({
 			'type': 'button',
 			'name': 'submit',
 			'value': Joomla.JText._('COM_FABRIK_EXPORT'),
-			'class': 'button',
+			'class': 'button exportCSVButton',
 			events: {
 				'click': function (e) {
 					e.stop();
 					e.target.disabled = true;
-					new Element('div', {
-						'id': 'csvmsg'
-					}).set('html', Joomla.JText._('COM_FABRIK_LOADING') + ' <br /><span id="csvcount">0</span> / <span id="csvtotal"></span> ' + Joomla.JText._('COM_FABRIK_RECORDS') + '.<br/>' + Joomla.JText._('COM_FABRIK_SAVING_TO') + '<span id="csvfile"></span>').inject(e.target, 'before');
+					var csvMsg = document.id('csvmsg');
+					if (typeOf(csvMsg) === 'null') {
+						csvMsg = new Element('div', {
+							'id': 'csvmsg'
+						}).inject(e.target, 'before');
+					}
+					csvMsg.set('html', Joomla.JText._('COM_FABRIK_LOADING') + ' <br /><span id="csvcount">0</span> / <span id="csvtotal"></span> ' + Joomla.JText._('COM_FABRIK_RECORDS') + '.<br/>' + Joomla.JText._('COM_FABRIK_SAVING_TO') + '<span id="csvfile"></span>');
 					this.triggerCSVExport(0);
 				}.bind(this)
 
@@ -420,7 +436,7 @@ var FbList = new Class({
 			this.csvfields = fields;
 		}
 
-		this.form.getElements('.fabrik_filter').each(function (f) {
+		this.getFilters().each(function (f) {
 			opts[f.name] = f.get('value');
 		}.bind(this));
 		
@@ -431,16 +447,23 @@ var FbList = new Class({
 		opts.Itemid = this.options.Itemid;
 		opts.listid = this.id;
 		opts.listref = this.id;
+		this.options.csvOpts.custom_qs.split('&').each(function (qs) {
+			var key = qs.split('=');
+			opts[key[0]] = key[1];
+		});
+		
+		// Append the custom_qs to the URL to enable querystring filtering of the list data
 		var myAjax = new Request.JSON({
-			url: '',
+			url: '?' + this.options.csvOpts.custom_qs,
 			method: 'post',
 			data: opts,
 			onError: function (text, error) {
 				fconsole(text, error);
 			},
-			onSuccess: function (res) {
+			onComplete: function (res) {
 				if (res.err) {
 					alert(res.err);
+					Fabrik.Windows.exportcsv.close();
 				} else {
 					if (typeOf(document.id('csvcount')) !== 'null') {
 						document.id('csvcount').set('text', res.count);
@@ -460,6 +483,7 @@ var FbList = new Class({
 						if (typeOf(document.id('csvmsg')) !== 'null') {
 							document.id('csvmsg').set('html', msg);
 						}
+						document.getElements('input.exportCSVButton').removeProperty('disabled');
 					}
 				}
 			}.bind(this)
@@ -530,11 +554,15 @@ var FbList = new Class({
 		}.bind(this));
 
 	},
+	
+	getFilters: function () {
+		return document.id(this.options.form).getElements('.fabrik_filter');
+	},
 
 	watchFilters: function () {
 		var e = '';
 		var submit = document.id(this.options.form).getElement('.fabrik_filter_submit');
-		document.id(this.options.form).getElements('.fabrik_filter').each(function (f) {
+		this.getFilters().each(function (f) {
 			e = f.get('tag') === 'select' ? 'change' : 'blur';
 			if (this.options.filterMethod !== 'submitform') {
 				f.removeEvent(e);
@@ -543,7 +571,7 @@ var FbList = new Class({
 				f.addEvent(e, function (e) {
 					e.stop();
 					if (e.target.retrieve('initialvalue') !== e.target.get('value')) {
-						this.submit('list.filter');
+						this.doFilter();
 					}
 				}.bind(this));
 			} else {
@@ -557,16 +585,23 @@ var FbList = new Class({
 			if (submit) {
 				submit.removeEvents();
 				submit.addEvent('click', function (e) {
-					this.submit('list.filter');
+					this.doFilter();
 				}.bind(this));
 			}
 		}
-		document.id(this.options.form).getElements('.fabrik_filter').addEvent('keydown', function (e) {
+		this.getFilters().addEvent('keydown', function (e) {
 			if (e.code === 13) {
 				e.stop();
-				this.submit('list.filter');
+				this.doFilter();
 			}
 		}.bind(this));
+	},
+	
+	doFilter: function () {
+		var res = Fabrik.fireEvent('list.filter', [this]).eventResults;
+		if (res.length === 0 || !res.contains(false)) {
+			this.submit('list.filter');
+		}
 	},
 
 	// highlight active row, deselect others
@@ -584,105 +619,36 @@ var FbList = new Class({
 		}
 		return row;
 	},
-
+	
 	watchRows: function () {
 		if (!this.list) {
 			return;
 		}
 		
 		if (this.options.ajax_links) {
-			this.getForm().removeEvents('click:relay(.fabrik_edit)');
-			this.getForm().addEvent('click:relay(.fabrik_edit)', function (e) {
-				var url, loadMethod, a, listid;
-				e.stop();
-				if (typeOf(e.target.getParent('.floating-tip-wrapper')) === 'null') {
-					listid = e.target.getParent('form').getElement('input[name=listref]').get('value');
-				} else {
-					listid = e.target.getParent('.floating-tip-wrapper').retrieve('listref');
-				}
-				//grab this list object in this method as 'this' refers to the last list rendered on the page which may not be the links list! :S
-				var list = Fabrik.blocks['list_' + listid];
-				var row = list.getActiveRow(e);
-				if (!row) {
-					return;
-				}
-				list.setActive(row);
-				var rowid = row.id.split('_').getLast();
-				if (list.options.links.edit === '') {
-					url = Fabrik.liveSite + "index.php?option=com_fabrik&view=form&formid=" + list.options.formid + '&rowid=' + rowid + '&tmpl=component&ajax=1';
-					loadMethod = 'xhr';
-				} else {
-					if (e.target.get('tag') === 'a') {
-						a = e.target;
-					} else {
-						a = typeOf(e.target.getElement('a')) !== 'null' ? e.target.getElement('a') : e.target.getParent('a');
-					}
-					url = a.get('href');
-					loadMethod = 'iframe';
-				}
-				// make id the same as the add button so we reuse the same form.
-				var winOpts = {
-					'id': 'add.' + this.id,
-					'title': this.options.popup_edit_label,
-					'loadMethod': loadMethod,
-					'contentURL': url,
-					'width': this.options.popup_width,
-					'height': this.options.popup_height
-				};
-				if (typeOf(this.options.popup_offset_x) !== 'null') {
-					winOpts.offset_x = this.options.popup_offset_x;
-				}
-				if (typeOf(this.options.popup_offset_y) !== 'null') {
-					winOpts.offset_y = this.options.popup_offset_y;
-				}
-				Fabrik.getWindow(winOpts);
-			}.bind(this));
-
-			this.getForm().removeEvents('click:relay(.fabrik_view)');
-			this.getForm().addEvent('click:relay(.fabrik_view)', function (e) {
-				var url, loadMethod, a, listid;
-				e.stop();
-				if (typeOf(e.target.getParent('.floating-tip-wrapper')) === 'null') {
-					listid = e.target.getParent('form').getElement('input[name=listref]').get('value');
-				} else {
-					listid = e.target.getParent('.floating-tip-wrapper').retrieve('listid');
-				}
-				var list = Fabrik.blocks['list_' + listid];
-				var row = list.getActiveRow(e);
-				
-				if (!row) {
-					return;
-				}
-				list.setActive(row);
-				var rowid = row.id.split('_').getLast();
-				if (list.options.links.detail === '') {
-					url = Fabrik.liveSite + "index.php?option=com_fabrik&view=details&formid=" + list.options.formid + '&rowid=' + rowid + '&tmpl=component&ajax=1';
-					loadMethod = 'xhr';
-				} else {
-					if (e.target.get('tag') === 'a') {
-						a = e.target;
-					} else {
-						a = typeOf(e.target.getElement('a')) !== 'null' ? e.target.getElement('a') : e.target.getParent('a');
-					}
-					url = a.get('href');
-					loadMethod = 'iframe';
-				}
-				var winOpts = {
-					'id': 'view.' + '.' + list.options.formid + '.' + rowid,
-					'title': this.options.popup_view_label,
-					'loadMethod': loadMethod,
-					'contentURL': url,
-					'width': this.options.popup_width,
-					'height': this.options.popup_height
-				};
-				if (typeOf(this.options.popup_offset_x) !== 'null') {
-					winOpts.offset_x = this.options.popup_offset_x;
-				}
-				if (typeOf(this.options.popup_offset_y) !== 'null') {
-					winOpts.offset_y = this.options.popup_offset_y;
-				}
-				Fabrik.getWindow(winOpts);
-			}.bind(this));
+			
+			// $$$rob - HACKKKKK!!!!!! 
+			// not sure why but on ajax first load of xhr content the form object does not ini
+			// if we created the window, hidden from view, then this 'fixes' the issue. I'd really like to 
+			// find out what the problem is here but for now this band aid is a help
+			var url = Fabrik.liveSite + "index.php?option=com_fabrik&view=form&formid=" + this.options.formid + '&rowid=0&tmpl=component&ajax=1';
+			var winOpts = {
+				'id': 'add.' + this.id,
+				'title': this.options.popup_edit_label,
+				'loadMethod': 'xhr',
+				'contentURL': url,
+				'visible': false,
+				'width': this.options.popup_width,
+				'height': this.options.popup_height,
+				'onContentLoaded': function () {}
+			};
+			if (typeOf(this.options.popup_offset_x) !== 'null') {
+				winOpts.offset_x = this.options.popup_offset_x;
+			}
+			if (typeOf(this.options.popup_offset_y) !== 'null') {
+				winOpts.offset_y = this.options.popup_offset_y;
+			}
+			var w = Fabrik.getWindow(winOpts);
 		}
 	},
 	
@@ -697,8 +663,10 @@ var FbList = new Class({
 		this.getForm();
 		if (task === 'list.delete') {
 			var ok = false;
+			var delCount = 0;
 			this.form.getElements('input[name^=ids]').each(function (c) {
 				if (c.checked) {
+					delCount ++;
 					ok = true;
 				}
 			});
@@ -707,12 +675,14 @@ var FbList = new Class({
 				Fabrik.loader.stop('listform_' + this.options.listRef);
 				return false;
 			}
-			if (!confirm(Joomla.JText._('COM_FABRIK_CONFIRM_DELETE'))) {
+			var delMsg = delCount === 1 ? Joomla.JText._('COM_FABRIK_CONFIRM_DELETE_1') : Joomla.JText._('COM_FABRIK_CONFIRM_DELETE').replace('%s', delCount); 
+			if (!confirm(delMsg)) {
 				Fabrik.loader.stop('listform_' + this.options.listRef);
 				return false;
 			}
 		}
-		Fabrik.loader.start('listform_' + this.options.listRef);
+		// We may want to set this as an option - if long page loads feedback that list is doing something might be useful
+		// Fabrik.loader.start('listform_' + this.options.listRef);
 		if (task === 'list.filter') {
 			Fabrik['filter_listform_' + this.options.listRef].onSubmit();
 			this.form.task.value = task;
@@ -725,7 +695,8 @@ var FbList = new Class({
 			}
 		}
 		if (this.options.ajax) {
-			// for module & mambot
+			Fabrik.loader.start('listform_' + this.options.listRef);
+			// For module & mambot
 			// $$$ rob with modules only set view/option if ajax on
 			this.form.getElement('input[name=option]').value = 'com_fabrik';
 			this.form.getElement('input[name=view]').value = 'list';
@@ -749,6 +720,9 @@ var FbList = new Class({
 						Fabrik.loader.stop('listform_' + this.options.listRef);
 						Fabrik['filter_listform_' + this.options.listRef].onUpdateData();
 						Fabrik.fireEvent('fabrik.list.submit.ajax.complete', [this, json]);
+						if (json.msg) {
+							alert(json.msg);
+						}
 					}.bind(this)
 				});
 			} else {
@@ -758,7 +732,6 @@ var FbList = new Class({
 			Fabrik.fireEvent('fabrik.list.submit', [task, this.form.toQueryString().toObject()]);
 		} else {
 			this.form.submit();
-			Fabrik.loader.stop('listform_' + this.options.listRef);
 		}
 		//Fabrik['filter_listform_' + this.options.listRef].onUpdateData();
 		return false;
@@ -775,6 +748,23 @@ var FbList = new Class({
 		}
 		this.submit('list.view');
 		return false;
+	},
+	
+	/**
+	 * Get the primary keys for the visible rows
+	 * 
+	 * @since   3.0.7
+	 * 
+	 * @return  array 
+	 */
+	getRowIds: function () {
+		var keys = [];
+		$H(this.options.data).each(function (group) {
+			group.each(function (row) {
+				keys.push(row.data.__pk_val);
+			});
+		});
+		return keys;
 	},
 
 	fabrikNavOrder: function (orderby, orderdir) {
@@ -864,7 +854,7 @@ var FbList = new Class({
 			var counter = 0;
 			var rowcounter = 0;
 			trs = [];
-			this.options.data = data.data;
+			this.options.data = this.options.isGrouped ? $H(data.data) : data.data;
 			if (data.calculations) {
 				this.updateCals(data.calculations);
 			}
@@ -879,48 +869,69 @@ var FbList = new Class({
 			gdata.each(function (groupData, groupKey) {
 				var container, thisrowtemplate;
 				var tbody = this.options.isGrouped ? this.list.getElements('.fabrik_groupdata')[gcounter] : this.tbody;
-				gcounter++;
-				for (i = 0; i < groupData.length; i++) {
-
-					if (typeOf(this.options.rowtemplate) === 'string') {
-						container = (!this.options.rowtemplate.match(/<tr/)) ? 'div' : 'table';
-						thisrowtemplate = new Element(container);
-						thisrowtemplate.set('html', this.options.rowtemplate);
-					} else {
-						container = this.options.rowtemplate.get('tag') === 'tr' ? 'table' : 'div';
-						thisrowtemplate = new Element(container);
-						// ie tmp fix for mt 1.2 setHTML on table issue
-						thisrowtemplate.adopt(this.options.rowtemplate.clone());
-					}
-					var row = $H(groupData[i]);
-					$H(row.data).each(function (val, key) {
-						var rowk = '.' + key;
-						var cell = thisrowtemplate.getElement(rowk);
-						if (typeOf(cell) !== 'null' && cell.get('tag') !== 'a') {
-							cell.set('html', val);
+				
+				// Set the group by heading
+				if (this.options.isGrouped && tbody) {
+					groupHeading = tbody.getPrevious();
+					groupHeading.getElement('.groupTitle').set('html', groupData[0].groupHeading);
+				}
+				if (typeOf(tbody) !== 'null') {
+					gcounter++;
+					for (i = 0; i < groupData.length; i++) {
+	
+						if (typeOf(this.options.rowtemplate) === 'string') {
+							container = (this.options.rowtemplate.trim().slice(0, 3) === '<tr') ? 'table' : 'div';
+							thisrowtemplate = new Element(container);
+							thisrowtemplate.set('html', this.options.rowtemplate);
+						} else {
+							container = this.options.rowtemplate.get('tag') === 'tr' ? 'table' : 'div';
+							thisrowtemplate = new Element(container);
+							// ie tmp fix for mt 1.2 setHTML on table issue
+							thisrowtemplate.adopt(this.options.rowtemplate.clone());
 						}
-						rowcounter ++;
-					}.bind(this));
-					// thisrowtemplate.getElement('.fabrik_row').id = 'list_' + this.id +
-					// '_row_' + row.get('__pk_val');
-					thisrowtemplate.getElement('.fabrik_row').id = row.id;
-					if (typeOf(this.options.rowtemplate) === 'string') {
-						var c = thisrowtemplate.getElement('.fabrik_row').clone();
-						c.id = row.id;
-						var newClass = row['class'].split(' ');
-						for (j = 0; j < newClass.length; j ++) {
-							c.addClass(newClass[j]);
+						var row = $H(groupData[i]);
+						$H(row.data).each(function (val, key) {
+							var rowk = '.' + key;
+							var cell = thisrowtemplate.getElement(rowk);
+							if (typeOf(cell) !== 'null' && cell.get('tag') !== 'a') {
+								cell.set('html', val);
+							}
+							rowcounter ++;
+						}.bind(this));
+						// thisrowtemplate.getElement('.fabrik_row').id = 'list_' + this.id +
+						// '_row_' + row.get('__pk_val');
+						thisrowtemplate.getElement('.fabrik_row').id = row.id;
+						if (typeOf(this.options.rowtemplate) === 'string') {
+							var c = thisrowtemplate.getElement('.fabrik_row').clone();
+							c.id = row.id;
+							var newClass = row['class'].split(' ');
+							for (j = 0; j < newClass.length; j ++) {
+								c.addClass(newClass[j]);
+							}
+							c.inject(tbody);
+						} else {
+							var r = thisrowtemplate.getElement('.fabrik_row');
+							r.inject(tbody);
+							thisrowtemplate.empty();
 						}
-						c.inject(tbody);
-					} else {
-						var r = thisrowtemplate.getElement('.fabrik_row');
-						r.inject(tbody);
-						thisrowtemplate.empty();
+						counter++;
 					}
-					counter++;
 				}
 			}.bind(this));
 
+			// Grouped data - show all tbodys, then hide empty tbodys (not going to work for none <table> tpls)
+			var tbodys = this.list.getElements('tbody');
+			tbodys.setStyle('display', '');
+			tbodys.each(function (tbody) {
+				if (!tbody.hasClass('fabrik_groupdata')) {
+					var groupTbody = tbody.getNext();
+					if (groupTbody.getElements('.fabrik_row').length === 0) {
+						tbody.hide();
+						groupTbody.hide();
+					}
+				}
+			});
+			
 			var fabrikDataContainer = this.list.getParent('.fabrikDataContainer');
 			var emptyDataMessage = this.list.getParent('.fabrikForm').getElement('.emptyDataMessage');
 			if (rowcounter === 0) {
@@ -1032,7 +1043,7 @@ var FbList = new Class({
 					this.result = true;
 					return false;
 				}
-				this.submit('list.filter');
+				this.doFilter();
 			}.bind(this));
 		}
 		var addRecord = this.form.getElement('.addRecord');
@@ -1067,19 +1078,21 @@ var FbList = new Class({
 				window.location = 'index.php?option=com_fabrik&task=list.view&cid=' + e.target.get('value');
 			}.bind(this));
 		}
-		if (this.options.ajax) {
-			if (typeOf(this.form.getElement('.pagination')) !== 'null') {
-				this.form.getElement('.pagination').getElements('.pagenav').each(function (a) {
-					a.addEvent('click', function (e) {
-						e.stop();
-						if (a.get('tag') === 'a') {
-							var o = a.href.toObject();
-							this.fabrikNav(o['limitstart' + this.id]);
-						}
-					}.bind(this));
+		// All nav links should submit the form, if we dont then filters are not taken into account when building the list cache id
+		// Can result in 2nd pages of cached data being shown, but without filters applied
+		// if (this.options.ajax) {
+		if (typeOf(this.form.getElement('.pagination')) !== 'null') {
+			this.form.getElement('.pagination').getElements('.pagenav').each(function (a) {
+				a.addEvent('click', function (e) {
+					e.stop();
+					if (a.get('tag') === 'a') {
+						var o = a.href.toObject();
+						this.fabrikNav(o['limitstart' + this.id]);
+					}
 				}.bind(this));
-			}
+			}.bind(this));
 		}
+		// }
 		
 		if (this.options.admin) {
 			Fabrik.addEvent('fabrik.block.added', function (block) {
@@ -1160,24 +1173,77 @@ var FbListKeys = new Class({
  */
 
 var FbGroupedToggler = new Class({
-	initialize: function (container) {
+	Implements: Options,
+	
+	options: {
+		collapseOthers: false,
+		startCollapsed: false
+	},
+	
+	initialize: function (container, options) {
+		this.setOptions(options);
+		this.container = container;
+		this.toggleState = 'shown';
+		if (this.options.startCollapsed) {
+			this.collapse();
+		}
 		container.addEvent('click:relay(.fabrik_groupheading a.toggle)', function (e) {
+			if (e.rightClick) {
+				return;
+			}
 			e.stop();
 			e.preventDefault(); //should work according to http://mootools.net/blog/2011/09/10/mootools-1-4-0/
+			
+			if (this.options.collapseOthers) {
+				this.collapse();
+			}
 			var h = e.target.getParent('.fabrik_groupheading');
 			var img = h.getElement('img');
 			var state = img.retrieve('showgroup', true);
 			var rows = h.getParent().getNext();
 			state ? rows.hide() : rows.show();
-			if (state) {
-				img.src = img.src.replace('orderasc', 'orderneutral');
-			} else {
-				img.src = img.src.replace('orderneutral', 'orderasc');
-			}
+			this.setIcon(img, state);
 			state = state ? false : true;
 			img.store('showgroup', state);
 			return false;
-		});
+		}.bind(this));
+	},
+	
+	setIcon: function (img, state) {
+		if (state) {
+			img.src = img.src.replace('orderasc', 'orderneutral');
+		} else {
+			img.src = img.src.replace('orderneutral', 'orderasc');
+		}
+	},
+	
+	collapse: function () {
+		this.container.getElements('.fabrik_groupdata').hide();
+		var i = this.container.getElements('.fabrik_groupheading a img');
+		if (i.length === 0) {
+			i = this.container.getElements('.fabrik_groupheading img');
+		}
+		i.each(function (img) {
+			img.store('showgroup', false);
+			this.setIcon(img, true);
+		}.bind(this));
+	},
+	
+	expand: function () {
+		this.container.getElements('.fabrik_groupdata').show();
+		var i = this.container.getElements('.fabrik_groupheading a img');
+		if (i.length === 0) {
+			i = this.container.getElements('.fabrik_groupheading img');
+		}
+		i.each(function (img) {
+			img.store('showgroup', true);
+			this.setIcon(img, false);
+		}.bind(this));
+	},
+	
+	toggle: function () {
+		this.toggleState === 'shown' ? this.collapse() : this.expand();
+		this.toggleState = this.toggleState === 'shown' ? 'hidden' : 'shown';
 	}
 });
 
@@ -1188,7 +1254,7 @@ var FbListActions = new Class({
 
 	Implements: [Options],
 	options: {
-		'method': '',
+		'method': 'floating',
 		'floatPos': 'bottom'
 	},
 

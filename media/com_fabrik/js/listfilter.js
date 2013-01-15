@@ -6,7 +6,9 @@ var FbListFilter = new Class({
 		'container': '',
 		'type': 'list',
 		'id': '',
-		'advancedSearch': {}
+		'advancedSearch': {
+			'controller': 'list'
+		}
 	},
 
 	initialize: function (options) {
@@ -22,14 +24,11 @@ var FbListFilter = new Class({
 				e.stop();
 				var x = dims.x - this.filterContainer.getWidth();
 				var y = dims.y + b.getHeight();
-				var rx = this.filterContainer.getStyle('display') === 'none' ? this.filterContainer.show() : this.filterContainer.hide();
-				this.filterContainer.fade('toggle');
-				this.container.getElements('.filter, .listfilter').toggle();
+				this.filterContainer.toggle();
 			}.bind(this));
 
 			if (typeOf(this.filterContainer) !== 'null') {
-				this.filterContainer.fade('hide').hide();
-				this.container.getElements('.filter, .listfilter').toggle();
+				this.filterContainer.toggle();
 			}
 		}
 
@@ -56,11 +55,12 @@ var FbListFilter = new Class({
 						p.clearFilter();
 					});
 				}
+				var injectForm = this.container.get('tag') === 'form' ? this.container : this.container.getElement('form');
 				new Element('input', {
 					'name': 'resetfilters',
 					'value': 1,
 					'type': 'hidden'
-				}).inject(this.container);
+				}).inject(injectForm);
 				if (this.options.type === 'list') {
 					this.list.submit('list.clearfilter');
 				} else {
@@ -71,7 +71,12 @@ var FbListFilter = new Class({
 		if (advancedSearchButton = this.container.getElement('.advanced-search-link')) {
 			advancedSearchButton.addEvent('click', function (e) {
 				e.stop();
-				var url = Fabrik.liveSite + "index.php?option=com_fabrik&view=list&tmpl=component&layout=_advancedsearch&listid=" + this.options.id;
+				var a = e.target;
+				//var url = Fabrik.liveSite + "index.php?option=com_fabrik&view=list&tmpl=component&layout=_advancedsearch&listid=" + this.options.id;
+				if (a.get('tag') !== 'a') {
+					a = a.getParent('a');
+				}
+				var url = a.href;
 				url += '&listref=' + this.options.ref;
 				this.windowopts = {
 					'id': 'advanced-search-win' + this.options.ref,
@@ -84,6 +89,10 @@ var FbListFilter = new Class({
 					y: this.options.popwiny,
 					onContentLoaded: function (win) {
 						var list = Fabrik.blocks['list_' + this.options.ref];
+						if (typeOf(list) === 'null') {
+							list = Fabrik.blocks[this.options.container];
+							this.options.advancedSearch.parentView = this.options.container;
+						}
 						list.advancedSearch = new AdvancedSearch(this.options.advancedSearch);
 					}.bind(this)
 				};
@@ -94,6 +103,9 @@ var FbListFilter = new Class({
 
 	getList: function () {
 		this.list = Fabrik.blocks[this.options.type + '_' + this.options.ref];
+		if (typeOf(this.list) === 'null') {
+			this.list = Fabrik.blocks[this.options.container];
+		}
 		return this.list;
 	},
 

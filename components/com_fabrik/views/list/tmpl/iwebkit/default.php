@@ -21,7 +21,7 @@ if ($this->params->get('show_page_title', 1)) { ?>
 	<div class="componentheading<?php echo $this->params->get('pageclass_sfx')?>"><?php echo $this->escape($this->params->get('page_title')); ?></div>
 <?php } ?>
 
-<?php if ($this->params->get('show-title', 1)) {?>
+<?php if ($this->getModel()->getParams()->get('show-title', 1)) {?>
 	<?php echo $this->table->label;?>
 <?php }?>
 </div>
@@ -41,7 +41,7 @@ if ($this->showFilters) {
 <?php
 	foreach ($this->rows as $groupedby => $group) {
 		if ($this->isGrouped) {
-			echo "<li class=\"title\">".$this->grouptemplates[$groupedby]."</li>";
+			echo "<li class=\"title\">". '<span class="groupTitle">' .$this->grouptemplates[$groupedby]."</span></li>";
 		}
 
 		foreach ($group as $this->_row) {
@@ -56,6 +56,7 @@ if ($this->showFilters) {
 ?>
 </div>
 </form>
+<?php echo $this->table->outro;?>
 
 <?php $doc = JFactory::getDocument();
 //$style = $this->params->get('mobile_image') == '' ? 'musiclist' : 'list';

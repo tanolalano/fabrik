@@ -1,10 +1,10 @@
 <?php
 /**
-* @package     Joomla.Plugin
-* @subpackage  Fabrik.list.email
-* @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
-* @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
-*/
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.list.email
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ */
 
 // Check to ensure this file is included in Joomla!
 defined('_JEXEC') or die();
@@ -12,12 +12,12 @@ defined('_JEXEC') or die();
 require_once COM_FABRIK_FRONTEND . '/models/plugin-list.php';
 
 /**
-* Email list plugin model
-*
-* @package     Joomla.Plugin
-* @subpackage  Fabrik.list.email
-* @since       3.0
-*/
+ * Email list plugin model
+ *
+ * @package     Joomla.Plugin
+ * @subpackage  Fabrik.list.email
+ * @since       3.0
+ */
 
 class plgFabrik_ListEmail extends plgFabrik_List
 {
@@ -29,7 +29,7 @@ class plgFabrik_ListEmail extends plgFabrik_List
 	/**
 	 * pop up window
 	 *
-	 * @depreacted - not used
+	 * @deprecated - not used
 	 *
 	 * @return  void
 	 */
@@ -62,13 +62,18 @@ class plgFabrik_ListEmail extends plgFabrik_List
 	}
 
 	/**
-	 * Needed to render plugin buttons
+	 * Prep the button if needed
 	 *
-	 * @return  bool
+	 * @param   object  $params  plugin params
+	 * @param   object  &$model  list model
+	 * @param   array   &$args   arguements
+	 *
+	 * @return  bool;
 	 */
 
-	public function button()
+	public function button($params, &$model, &$args)
 	{
+		parent::button($params, $model, $args);
 		return true;
 	}
 
@@ -103,44 +108,76 @@ class plgFabrik_ListEmail extends plgFabrik_List
 		return true;
 	}
 
-	function getToField()
+	/**
+	 * Get the html to create the <to> list
+	 *
+	 * @return string
+	 */
+
+	public function getToField()
 	{
-		$this->_id = JRequest::getInt('id');
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$this->_id = $input->getInt('id');
 		$params = $this->getParams();
-		$renderOrder = JRequest::getInt('renderOrder');
+		$renderOrder = $input->getInt('renderOrder');
 		$toType = $params->get('emailtable_to_type');
 		$toType = is_array($toType) ? $toType[$renderOrder] : $toType;
 		if ($toType == 'field')
 		{
 			$to = $params->get('emailtable_to');
 			$to = is_array($to) ? $to[$renderOrder] : $to;
-			return '<input name="order_by" id="order_by" value="' . $to . '" readonly="true" />';
+			return '<input name="list_email_to" id="list_email_to" value="' . $to . '" readonly="true" />';
 		}
 		else
 		{
-			return $this->formModel->getElementList('order_by');
+			return $this->formModel->getElementList('list_email_to');
 		}
 	}
 
+	/**
+	 * Are attachements allowed?
+	 *
+	 * @return bool
+	 */
+
 	public function getAllowAttachment()
 	{
-		$renderOrder = JRequest::getInt('renderOrder');
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$renderOrder = $input->getInt('renderOrder');
 		$params = $this->getParams();
 		$allow = $params->get('emailtable_allow_attachment');
 		return $allow[$renderOrder];
 	}
 
+	/**
+	 * Get the subject line
+	 *
+	 * @return  string
+	 */
+
 	public function getSubject()
 	{
-		$renderOrder = JRequest::getInt('renderOrder');
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$renderOrder = $input->getInt('renderOrder');
 		$params = $this->getParams();
 		$var = $params->get('email_subject');
 		return is_array($var) ? $var[$renderOrder] : $var;
 	}
 
+	/**
+	 * Get the email message
+	 *
+	 * @return  string
+	 */
+
 	public function getMessage()
 	{
-		$renderOrder = JRequest::getInt('renderOrder');
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$renderOrder = $input->getInt('renderOrder');
 		$params = $this->getParams();
 		$var = $params->get('email_message');
 		return is_array($var) ? $var[$renderOrder] : $var;
@@ -149,29 +186,38 @@ class plgFabrik_ListEmail extends plgFabrik_List
 	/**
 	 * Get the selected records
 	 *
-	 * @param   string  $key     key
-	 * @param   bool   $allData  data
+	 * @param   string  $key      key
+	 * @param   bool    $allData  data
 	 *
 	 * @return	array	rows
 	 */
 
 	public function getRecords($key = 'ids', $allData = false)
 	{
-		$ids = (array) JRequest::getVar($key, array());
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		if ($key === 'recordids')
+		{
+			$ids = explode(',', $input->get($key, '', 'string'));
+		}
+		else
+		{
+			$ids = (array) $input->get($key, array(), 'array');
+		}
+
 		JArrayHelper::toInteger($ids);
 		if (empty($ids))
 		{
 			JError::raiseError(400, JText::_('PLG_LIST_EMAIL_ERR_NO_RECORDS_SELECTED'));
 			jexit();
 		}
-		$renderOrder = JRequest::getInt('renderOrder');
+		$renderOrder = $input->getInt('renderOrder');
 		$params = $this->getParams();
 		$model = $this->listModel;
 		$pk = $model->getTable()->db_primary_key;
 		$pk2 = FabrikString::safeColNameToArrayKey($pk) . '_raw';
 		$whereClause = "($pk IN (" . implode(",", $ids) . "))";
 		$cond = $params->get('emailtable_condition');
-		$cond = JArrayHelper::getValue($cond, $renderOrder);
 		if (trim($cond) !== '')
 		{
 			$whereClause .= ' AND (' . $cond . ')';
@@ -195,67 +241,80 @@ class plgFabrik_ListEmail extends plgFabrik_List
 
 	/**
 	 * Upload the attachments to the server
-	 * @access private
 	 *
-	 * @return bol success/fail
+	 * @return  bool success/fail
 	 */
 
-	function _upload()
+	private function _upload()
 	{
 		jimport('joomla.filesystem.file');
 		jimport('joomla.client.helper');
+		$app = JFactory::getApplication();
+		$input = $app->input;
 		JClientHelper::setCredentialsFromRequest('ftp');
-		$files = JRequest::getVar('attachement', array(), 'files');
+		$files = $input->files->get('attachement', array());
 		$folder = JPATH_ROOT . '/images/stories';
 		$this->filepath = array();
-		$c = 0;
-		if (array_key_exists('name', $files))
+		foreach ($files as $file)
 		{
-			foreach ($files['name'] as $name)
+			$name = $file['name'];
+			if ($name == '')
 			{
-				if ($name == '')
-				{
-					continue;
-				}
-				$path = $folder . DS . strtolower($name);
-				if (!JFile::upload($files['tmp_name'][$c], $path))
-				{
-					JError::raiseWarning(100, JText::_('PLG_LIST_EMAIL_ERR_CANT_UPLOAD_FILE'));
-					return false;
-				}
-				else
-				{
-					$this->filepath[] = $path;
-				}
-				$c++;
+				continue;
+			}
+			$path = $folder . '/' . strtolower($name);
+			if (!JFile::upload($file['tmp_name'], $path))
+			{
+				JError::raiseWarning(100, JText::_('PLG_LIST_EMAIL_ERR_CANT_UPLOAD_FILE'));
+				return false;
+			}
+			else
+			{
+				$this->filepath[] = $path;
 			}
 		}
 		return true;
 	}
 
+	/**
+	 * Send the email
+	 *
+	 * @return boolean
+	 */
+
 	public function doEmail()
 	{
 		$listModel = $this->listModel;
 		$app = JFactory::getApplication();
+		$input = $app->input;
 		jimport('joomla.mail.helper');
 		if (!$this->_upload())
 		{
 			return false;
 		}
-		$listModel->setId(JRequest::getInt('id', 0));
+		$listId = $input->getInt('id', 0);
+		$this->setId($listId);
+		$listModel->setId($listId);
 		$w = new FabrikWorker;
 		$config = JFactory::getConfig();
 		$params = $this->getParams();
-		$to = JRequest::getVar('order_by');
-		$renderOrder = JRequest::getInt('renderOrder');
+		$to = $input->get('list_email_to', '', 'string');
+		$renderOrder = $input->getInt('renderOrder');
 		$toType = $params->get('emailtable_to_type', 'list');
 		$fromUser = $params->get('emailtable_from_user');
 		if ($toType == 'list')
 		{
 			$to = str_replace('.', '___', $to);
 		}
-		$subject = JRequest::getVar('subject');
-		$message = JRequest::getVar('message', '', 'post', 'string', 4);
+
+		if ($toType == 'list' && $to == '')
+		{
+			JError::raiseError(500, JText::_('PLG_LIST_EMAIL_ERR_NO_TO_ELEMENT_SELECTED'));
+			exit;
+		}
+		$subject = $input->get('subject', '', 'string');
+		$message = $input->get('message', '', 'html');
+		$message = nl2br($message);
 		$data = $this->getRecords('recordids', true);
 		if ($fromUser)
 		{
@@ -265,11 +324,11 @@ class plgFabrik_ListEmail extends plgFabrik_List
 		}
 		else
 		{
-			$from = $config->getValue('mailfrom');
-			$fromname = $config->getValue('fromname');
+			$from = $config->get('mailfrom');
+			$fromname = $config->get('fromname');
 		}
 
-		$email_from = $config->getValue('mailfrom');
+		$email_from = $config->get('mailfrom');
 		$cc = null;
 		$bcc = null;
 		$sent = 0;
@@ -277,6 +336,7 @@ class plgFabrik_ListEmail extends plgFabrik_List
 		$updated = array();
 		foreach ($data as $group)
 		{
+
 			foreach ($group as $row)
 			{
 				if ($toType == 'list')
@@ -294,12 +354,15 @@ class plgFabrik_ListEmail extends plgFabrik_List
 					$mailtos = explode(',', $mailto);
 					foreach ($mailtos as $mailto)
 					{
-						$mailto = $w->parseMessageForPlaceholder($mailto, $row);
-						if (JMailHelper::isEmailAddress($mailto))
+						$thisMailto = $w->parseMessageForPlaceholder($mailto, $row);
+						if (JMailHelper::isEmailAddress($thisMailto))
 						{
 							$thissubject = $w->parseMessageForPlaceholder($subject, $row);
 							$thismessage = $w->parseMessageForPlaceholder($message, $row);
-							$res = JUtility::sendMail($email_from, $email_from, $mailto, $thissubject, $thismessage, 1, $cc, $bcc, $this->filepath);
+
+							// Get a JMail instance (have to get a new instnace otherwise the receipients are appended to previously added recipients)
+							$mail = JFactory::getMailer();
+							$res = $mail->sendMail($email_from, $email_from, $thisMailto, $thissubject, $thismessage, true, $cc, $bcc, $this->filepath);
 							if ($res)
 							{
 								$sent++;

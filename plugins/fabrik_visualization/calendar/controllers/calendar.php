@@ -25,9 +25,15 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 {
 	/**
 	 * Display the view
+	 *
+	 * @param   boolean  $cachable   If true, the view output will be cached
+	 * @param   array    $urlparams  An array of safe url parameters and their variable types, for valid values see {@link JFilterInput::clean()}.
+	 *
+	 * @return  JController  A JController object to support chaining.
+	 *
+	 * @since   11.1
 	 */
-
-	function display()
+	public function display($cachable = false, $urlparams = false)
 	{
 		$document = JFactory::getDocument();
 		$viewName = 'calendar';
@@ -43,6 +49,7 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 		//$view->_formView->setModel($formModel, true);
 
 		parent::display();
+		return $this;
 	}
 
 	function deleteEvent()
@@ -57,7 +64,7 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 		$viewName = 'calendar';
 		$usersConfig = JComponentHelper::getParams('com_fabrik');
 		$model = &$this->getModel($viewName);
-		$id = JRequest::getInt('id', $usersConfig->get('visualizationid', JRequest::getInt('visualizationid', 0)), 'get');
+		$id = $input->getInt('id', $usersConfig->get('visualizationid', $input->getInt('visualizationid', 0)), 'get');
 		$model->setId($id);
 		echo $model->getEvents();
 	}
@@ -68,13 +75,15 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 		$viewName = 'calendar';
 
 		$viewType = $document->getType();
+
 		// Set the default view name from the Request
-		$view = &$this->getView($viewName, $viewType);
+		$view = $this->getView($viewName, $viewType);
 
 		$formModel = $this->getModel('Form', 'FabrikFEModel');
 		$view->setModel($formModel);
+
 		// Push a model into the view
-		$model = &$this->getModel($viewName);
+		$model = $this->getModel($viewName);
 
 		$view->setModel($model, true);
 		$view->chooseaddevent();
@@ -82,11 +91,14 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 
 	function addEvForm()
 	{
-		$listid = JRequest::getInt('listid');
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		$input = $app->input;
+		$listid = $input->getInt('listid');
 		$viewName = 'calendar';
 		$usersConfig = JComponentHelper::getParams('com_fabrik');
-		$model = &$this->getModel($viewName);
-		$id = JRequest::getInt('visualizationid', $usersConfig->get('visualizationid', 0));
+		$model = $this->getModel($viewName);
+		$id = $input->getInt('visualizationid', $usersConfig->get('visualizationid', 0));
 		$model->setId($id);
 		$model->setupEvents();
 		if (array_key_exists($listid, $model->_events))
@@ -96,19 +108,21 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 		else
 		{
 			$config = JFactory::getConfig();
-			$prefix = $config->getValue('config.dbprefix');
+			$prefix = $config->get('dbprefix');
 			$datefield = $prefix . 'fabrik_calendar_events___start_date';
 		}
-		$rowid = JRequest::getInt('rowid');
+		$rowid = $input->getInt('rowid');
 		$listModel = JModel::getInstance('list', 'FabrikFEModel');
 		$listModel->setId($listid);
 		$table = $listModel->getTable();
-		JRequest::setVar('view', 'form');
-		JRequest::setVar('formid', $table->form_id);
-		JRequest::setVar('tmpl', 'component');
-		JRequest::setVar('ajax', '1');
-		$link = 'index.php?option=com_fabrik&view=form&formid=' . $table->form_id . '&rowid=' . $rowid . '&tmpl=component&ajax=1';
+		$input->set('view', 'form');
+		$input->set('formid', $table->form_id);
+		$input->set('tmpl', 'component');
+		$input->set('ajax', '1');
+		$link = 'index.php?option=com_' . $package . '&view=form&formid=' . $table->form_id . '&rowid=' . $rowid . '&tmpl=component&ajax=1';
 		$link .= '&jos_fabrik_calendar_events___visualization_id=' . JRequest::getInt('jos_fabrik_calendar_events___visualization_id');
+		$link .= '&fabrik_window_id=' . $input->get('fabrik_window_id');
+
 		$start_date = JRequest::getVar('start_date', '');
 		if (!empty($start_date))
 		{
@@ -119,4 +133,3 @@ class FabrikControllerVisualizationcalendar extends FabrikControllerVisualizatio
 		$this->setRedirect($link);
 	}
 }
-?>

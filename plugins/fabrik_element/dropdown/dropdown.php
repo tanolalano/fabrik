@@ -14,19 +14,19 @@ defined('_JEXEC') or die();
  *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.element.dropdown
+ * @since       3.0
  */
 
 class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 {
 
-	var $defaults = null;
 	/**
-	* Method to set the element id
-	*
-	* @param   int  $id  element ID number
-	*
-	* @return  void
-	*/
+	 * Method to set the element id
+	 *
+	 * @param   int  $id  element ID number
+	 *
+	 * @return  void
+	 */
 	public function setId($id)
 	{
 		parent::setId($id);
@@ -36,6 +36,7 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 		$params->set('allow_frontend_addto', (bool) $params->get('allow_frontend_addtodropdown', false));
 		$params->set('allowadd-onlylabel', (bool) $params->get('dd-allowadd-onlylabel', true));
 		$params->set('savenewadditions', (bool) $params->get('dd-savenewadditions', false));
+		$params->set('options_populate', $params->get('dropdown_populate', ''));
 	}
 
 	/**
@@ -47,7 +48,7 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 	 * @return  string	elements html
 	 */
 
-	function render($data, $repeatCounter = 0)
+	public function render($data, $repeatCounter = 0)
 	{
 		$name = $this->getHTMLName($repeatCounter);
 		$id = $this->getHTMLId($repeatCounter);
@@ -73,7 +74,9 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 		foreach ($values as $tmpval)
 		{
 			$tmpLabel = JArrayHelper::getValue($labels, $i);
-			$tmpval = htmlspecialchars($tmpval, ENT_QUOTES); //for values like '1"'
+
+			// For values like '1"'
+			$tmpval = htmlspecialchars($tmpval, ENT_QUOTES);
 			$opts[] = JHTML::_('select.option', $tmpval, $tmpLabel);
 			if (in_array($tmpval, $selected))
 			{
@@ -81,8 +84,10 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 			}
 			$i++;
 		}
-		//if we have added an option that hasnt been saved to the database. Note you cant have
-		// it not saved to the database and asking the user to select a value and label
+		/*
+		 * If we have added an option that hasnt been saved to the database. Note you cant have
+		 * it not saved to the database and asking the user to select a value and label
+		 */
 		if ($params->get('allow_frontend_addtodropdown', false) && !empty($selected))
 		{
 			foreach ($selected as $sel)
@@ -95,7 +100,7 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 			}
 		}
 		$str = JHTML::_('select.genericlist', $opts, $name, $attribs, 'value', 'text', $selected, $id);
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			return implode(', ', $aRoValues);
 		}
@@ -140,19 +145,22 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 	 * @return mixed
 	 */
 
-	function getDefaultValue($data = array())
+	public function getDefaultValue($data = array())
 	{
 		$params = $this->getParams();
+		$element = $this->getElement();
 
 		if (!isset($this->_default))
 		{
-			if ($this->getElement()->default != '')
+			if ($element->default != '')
 			{
 
-				$default = $this->getElement()->default;
-				// nasty hack to fix #504 (eval'd default value)
-				// where _default not set on first getDefaultValue
-				// and then its called again but the results have already been eval'd once and are hence in an array
+				$default = $element->default;
+				/*
+				 * Nasty hack to fix #504 (eval'd default value)
+				 * where _default not set on first getDefaultValue
+				 * and then its called again but the results have already been eval'd once and are hence in an array
+				 */
 				if (is_array($default))
 				{
 					$v = $default;
@@ -161,7 +169,13 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 				{
 					$w = new FabrikWorker;
 					$default = $w->parseMessageForPlaceHolder($default, $data);
-					$v = $params->get('eval', '0') == '1' ? eval($default) : $default;
+					if ($element->eval == "1")
+					{
+						$v = @eval(stripslashes($default));
+						FabrikWorker::logEval($default, 'Caught exception on eval in ' . $element->name . '::getDefaultValue() : %s');
+					}else{
+						$v = $default;
+					}
 				}
 				if (is_string($v))
 				{
@@ -190,7 +204,7 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 	 * @return  bool
 	 */
 
-	function dataConsideredEmpty($data, $repeatCounter)
+	public function dataConsideredEmpty($data, $repeatCounter)
 	{
 		// $$$ hugh - $data seems to be an array now?
 		if (is_array($data))
@@ -213,7 +227,7 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 	/**
 	 * Repalce a value with its label
 	 *
-	 * @param   string	$selected  value
+	 * @param   string  $selected  value
 	 *
 	 * @return  string	label
 	 */
@@ -244,25 +258,25 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 	}
 
 	/**
-	 * build the filter query for the given element.
+	 * Build the filter query for the given element.
 	 * Can be overwritten in plugin - e.g. see checkbox element which checks for partial matches
 	 *
 	 * @param   string  $key            element name in format `tablename`.`elementname`
 	 * @param   string  $condition      =/like etc
-	 * @param   string  $value          search string - already quoted if specified in filter array options
+	 * @param   string  $label          search string - already quoted if specified in filter array options
 	 * @param   string  $originalValue  original filter value without quotes or %'s applied
 	 * @param   string  $type           filter type advanced/normal/prefilter/search/querystring/searchall
 	 *
 	 * @return  string	sql query part e,g, "key = value"
 	 */
 
-	function getFilterQuery($key, $condition, $label, $originalValue, $type = 'normal')
+	public function getFilterQuery($key, $condition, $label, $originalValue, $type = 'normal')
 	{
 		$value = $label;
+		$db = JFactory::getDbo();
 		if ($type == 'searchall')
 		{
 			// $$$ hugh - (sometimes?) $label is already quoted, which is causing havoc ...
-			$db = JFactory::getDbo();
 			$values = $this->replaceLabelWithValue(trim($label, "'"));
 			if (empty($values))
 			{
@@ -283,20 +297,38 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 		}
 		$this->encryptFieldName($key);
 		$params = $this->getParams();
-		if ($params->get('multiple'))
-		{
-			$originalValue = trim($value, "'");
-			$where1 = ('["' . $originalValue . '",%');
-			$where2 = ('%,"' . $originalValue . '",%');
-			$where3 = ('%,"' . $originalValue . '"]');
 
-			return ' (' . $key . ' ' . $condition . ' ' . $value . ' OR ' . $key . ' LIKE \'' . $where1 . '\' OR ' . $key . ' LIKE \'' . $where2
-				. '\' OR ' . $key . ' LIKE \'' . $where3 . '\' )';
-		}
-		else
+		/*
+		 * Was using a test for multiple but this can be changed, so data may be recorded in both ways
+		 * as a json array or single value, so regardless of multiple option we should always check for both
+		 */
+
+		$originalValue = trim($value, "'");
+		/*
+		 * JSON stored values will back slash "/". So wwe need to add "\\\\"
+		 * before it to escape it for the query.
+		 */
+		$originalValue = str_replace("/", "\\\\/", $originalValue);
+
+		switch ($condition)
 		{
-			return parent::getFilterQuery($key, $condition, $value, $originalValue, $type);
+			case '=':
+				$condition2 = 'LIKE';
+				$glue = 'OR';
+				break;
+			case '<>':
+				$condition2 = 'NOT LIKE';
+				$glue = 'AND';
+				break;
+			default:
+				$condition2 = 'LIKE';
+				$glue = 'OR';
+				break;
 		}
+		$db = FabrikWorker::getDbo();
+		$str = "($key $condition $value " . " $glue $key $condition2 " . $db->quote('["' . $originalValue . '"%') . " $glue $key $condition2 "
+		. $db->quote('%"' . $originalValue . '"%') . " $glue $key $condition2 " . $db->quote('%"' . $originalValue . '"]') . ")";
+		return $str;
 	}
 
 	/**
@@ -309,7 +341,7 @@ class plgFabrik_ElementDropdown extends plgFabrik_ElementList
 	 * @return  array  html ids to watch for validation
 	 */
 
-	function getValidationWatchElements($repeatCounter)
+	public function getValidationWatchElements($repeatCounter)
 	{
 		$id = $this->getHTMLId($repeatCounter);
 		$ar = array('id' => $id, 'triggerEvent' => 'change');

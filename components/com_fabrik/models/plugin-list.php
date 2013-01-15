@@ -85,6 +85,24 @@ class plgFabrik_List extends FabrikPlugin
 	}
 
 	/**
+	 * Prep the button if needed
+	 *
+	 * @param   object  $params  plugin params
+	 * @param   object  &$model  list model
+	 * @param   array   &$args   arguements
+	 *
+	 * @since  3.0.6.2
+	 *
+	 * @return  bool;
+	 */
+
+	public function button($params, &$model, &$args)
+	{
+		$this->context = $model->getRenderContext();
+		return false;
+	}
+
+	/**
 	 * Build the HTML for the plug-in button
 	 *
 	 * @return  string
@@ -100,7 +118,7 @@ class plgFabrik_List extends FabrikPlugin
 			$label = $this->buttonLabel();
 			$imageName = $this->getParams()->get('list_' . $this->buttonPrefix . '_image_name', $this->buttonPrefix . '.png');
 			$img = FabrikHelperHTML::image($imageName, 'list', '', $label);
-			return '<a href="#" class="' . $name . ' listplugin" title="' . $label . '">' . $img . '<span>' . $label . '</span></a>';
+			return '<a href="#" data-list="' . $this->context . '"class="' . $name . ' listplugin" title="' . $label . '">' . $img . '<span>' . $label . '</span></a>';
 		}
 		return '';
 	}
@@ -223,7 +241,7 @@ class plgFabrik_List extends FabrikPlugin
 	public function onGetFilterKey()
 	{
 		$this->filterKey = JString::strtolower(str_replace('plgFabrik_List', '', get_class($this)));
-		return true;
+		return $this->filterKey;
 	}
 
 	/**
@@ -250,7 +268,9 @@ class plgFabrik_List extends FabrikPlugin
 
 	protected function getSessionContext()
 	{
-		return 'com_fabrik.list' . $this->model->getRenderContext() . '.plugins.' . $this->onGetFilterKey() . '.';
+		$app = JFactory::getApplication();
+		$package = $app->getUserState('com_fabrik.package', 'fabrik');
+		return 'com_' . $package . '.list' . $this->model->getRenderContext() . '.plugins.' . $this->onGetFilterKey() . '.';
 	}
 
 	/**
@@ -270,8 +290,8 @@ class plgFabrik_List extends FabrikPlugin
 	 *
 	 * @param   object  $params  plugin params
 	 * @param   object  &$model  list model
-	 * @param   array   &$args   arguements - first value is an object with a query
-	 * property which contains the current query:
+	 * @param   array   &$args   arguements - first value is an object with a JQuery object
+	 * contains the current query:
 	 * $args[0]->query
 	 *
 	 * @return  void;

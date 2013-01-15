@@ -1,6 +1,7 @@
 <?php
-
 /**
+ * Fabrik Element List Model
+ *
  * @package     Joomla
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -23,15 +24,39 @@ jimport('joomla.filesystem.file');
 class plgFabrik_ElementList extends plgFabrik_Element
 {
 
+	/**
+	 * Does the element have sub elements
+	 *
+	 * @var bool
+	 */
 	public $hasSubElements = true;
 
+	/**
+	 * Default values
+	 *
+	 * @var array
+	 */
 	public $defaults = null;
 
+	/**
+	 * Db table field type
+	 *
+	 * @var  string
+	 */
 	protected $fieldDesc = 'TEXT';
 
+	/**
+	 * Db table field size
+	 *
+	 * @var  string
+	 */
 	protected $inputType = 'radio';
 
-	/** @var bool - should the table render functions use html to display the data */
+	/**
+	 * Should the table render functions use html to display the data
+	 *
+	 * @var bool
+	 */
 	public $renderWithHTML = true;
 
 	/**
@@ -153,7 +178,10 @@ class plgFabrik_ElementList extends plgFabrik_Element
 		if (in_array($element->filter_type, array('range', 'dropdown', '')))
 		{
 			$rows = $this->filterValueList($normal);
-			JArrayHelper::sortObjects($rows, $params->get('filter_groupby', 'text'));
+			if ($params->get('filter_groupby') != -1)
+			{
+				JArrayHelper::sortObjects($rows, $params->get('filter_groupby', 'text'));
+			}
 			if (!in_array('', $values))
 			{
 				array_unshift($rows, JHTML::_('select.option', '', $this->filterSelectLabel()));
@@ -170,10 +198,10 @@ class plgFabrik_ElementList extends plgFabrik_Element
 				{
 					$default = array('', '');
 				}
-				$return[] = JHTML::_('select.genericlist', $rows, $v . '[]', $attribs, 'value', 'text', $default[0], $element->name
-					. "_filter_range_0");
-				$return[] = JHTML::_('select.genericlist', $rows, $v . '[]', $attribs, 'value', 'text', $default[1], $element->name
-					. "_filter_range_1");
+				$return[] = JHTML::_('select.genericlist', $rows, $v . '[]', $attribs, 'value', 'text', $default[0],
+					$element->name . "_filter_range_0");
+				$return[] = JHTML::_('select.genericlist', $rows, $v . '[]', $attribs, 'value', 'text', $default[1],
+					$element->name . "_filter_range_1");
 				break;
 			case "dropdown":
 			default:
@@ -200,17 +228,9 @@ class plgFabrik_ElementList extends plgFabrik_Element
 				break;
 
 			case 'auto-complete':
-				if (get_magic_quotes_gpc())
-				{
-					$default = stripslashes($default);
-				}
-				$default = htmlspecialchars($default);
-				$return = '<input type="hidden" name="' . $v . '" class="inputbox fabrik_filter ' . $htmlid . '" value="' . $default . '" />';
-				$return .= '<input type="text" name="' . $v . '-auto-complete" class="inputbox fabrik_filter autocomplete-trigger ' . $htmlid
-					. '-auto-complete" size="' . $size . '" value="' . $default . '" />';
-				$selector = '#list_' . $listModel->getRenderContext() . ' .' . $htmlid;
-				FabrikHelperHTML::autoComplete($selector, $this->getElement()->id);
-
+				$defaultLabel = $this->getLabelForValue($default);
+				$autoComplete = $this->autoCompleteFilter($default, $v, $defaultLabel, $normal);
+				$return = array_merge($return, $autoComplete);
 				break;
 		}
 		$return[] = $normal ? $this->getFilterHiddenFields($counter, $elName) : $this->getAdvancedFilterHiddenFields();
@@ -269,7 +289,14 @@ class plgFabrik_ElementList extends plgFabrik_Element
 		}
 		if ($split_str == '')
 		{
-			$val = '<ul><li>' . implode('</li><li>', $aLabels) . '</li></ul>';
+			if (count($aLabels) === 1)
+			{
+				$val = $aLabels[0];
+			}
+			else
+			{
+				$val = '<ul><li>' . implode('</li><li>', $aLabels) . '</li></ul>';
+			}
 		}
 		else
 		{
@@ -283,7 +310,7 @@ class plgFabrik_ElementList extends plgFabrik_Element
 	}
 
 	/**
-	 * used by radio and dropdown elements to get a dropdown list of their unique
+	 * Used by radio and dropdown elements to get a dropdown list of their unique
 	 * unique values OR all options - basedon filter_build_method
 	 *
 	 * @param   bool    $normal     do we render as a normal filter or as an advanced search filter
@@ -309,13 +336,37 @@ class plgFabrik_ElementList extends plgFabrik_Element
 	 * @return  string  json encoded options
 	 */
 
-	public function onAutocomplete_options()
+	/* public function onAutocomplete_options()
 	{
 		// Needed for ajax update (since we are calling this method via dispatcher element is not set
 		$this->setId(JRequest::getInt('element_id'));
 		$this->getElement(true);
-		$listModel = $this->getListModel();
-		$rows = $this->filterValueList(true);
+
+		$cache = JCache::getInstance('callback',
+			array('defaultgroup' => 'com_fabrik', 'cachebase' => JPATH_BASE . '/cache/', 'lifetime' => ((float) 2 * 60 * 60), 'language' => 'en-GB',
+				'storage' => 'file'));
+		$cache->setCaching(true);
+		$search = JRequest::getVar('value');
+		echo $cache->call(array('plgFabrik_elementList', 'cacheAutoCompleteOptions'), $this, $search);
+	} */
+
+	/**
+	 * Cache method to populate autocomplete options
+	 *
+	 * @param   plgFabrik_Element  $elementModel  element model
+	 * @param   string             $search        search string
+	 * @param   array              $opts          options, 'label' => field to use for label (db join)
+	 *
+	 * @since   3.0.7
+	 *
+	 * @return string  json encoded search results
+	 */
+
+	public static function cacheAutoCompleteOptions($elementModel, $search, $opts = array())
+	{
+		$listModel = $elementModel->getListModel();
+		$label = JArrayHelper::getValue($opts, 'label', '');
+		$rows = $elementModel->filterValueList(true, '', $label);
 		$v = addslashes(JRequest::getVar('value'));
 		$start = count($rows) - 1;
 		for ($i = $start; $i >= 0; $i--)
@@ -330,7 +381,7 @@ class plgFabrik_ElementList extends plgFabrik_Element
 	}
 
 	/**
-	 * will the element allow for multiple selections
+	 * Will the element allow for multiple selections
 	 *
 	 * @since	3.0.6
 	 *
@@ -374,7 +425,14 @@ class plgFabrik_ElementList extends plgFabrik_Element
 				$l = $useIcon ? $this->_replaceWithIcons($val, 'list', $listModel->getTmpl()) : $val;
 				if (!$this->iconsSet == true)
 				{
-					$l = $this->getLabelForValue($val);
+					if (!is_a($this, 'plgFabrik_ElementDatabasejoin'))
+					{
+						$l = $this->getLabelForValue($val);
+					}
+					else
+					{
+						$l = $val;
+					}
 					$l = $this->_replaceWithIcons($l, 'list', $listModel->getTmpl());
 				}
 				$l = $this->rollover($l, $thisRow, 'list');
@@ -441,7 +499,7 @@ class plgFabrik_ElementList extends plgFabrik_Element
 
 			// $$$ hugh - ooops, '0' will count as empty.
 			// $selected = empty($selected) ?  array() : array($selected);
-			$selected = $selected === '' ?  array() : array($selected);
+			$selected = $selected === '' ? array() : array($selected);
 		}
 		// $$$ rob 06/10/2011 if front end add option on, but added option not saved we should add in the selected value to the
 		// values and labels.
@@ -449,9 +507,21 @@ class plgFabrik_ElementList extends plgFabrik_Element
 		if (!empty($diff))
 		{
 			$values = array_merge($values, $diff);
+
+			// Swap over the default value to the default label
+			if (!$this->isEditable())
+			{
+				foreach ($diff as &$di)
+				{
+					if ($di === $params->get('sub_default_value'))
+					{
+						$di = $params->get('sub_default_label');
+					}
+				}
+			}
 			$labels = array_merge($labels, $diff);
 		}
-		if (!$this->_editable)
+		if (!$this->isEditable())
 		{
 			$aRoValues = array();
 			for ($i = 0; $i < count($values); $i++)
@@ -465,6 +535,14 @@ class plgFabrik_ElementList extends plgFabrik_Element
 			return ($this->isMultiple() && $this->renderWithHTML)
 				? '<ul class="fabrikRepeatData"><li>' . implode('</li><li>', $aRoValues) . '</li></ul>' : implode($splitter, $aRoValues);
 		}
+
+		// Remove the default value
+		$key = array_search($params->get('sub_default_value'), $values);
+		if ($key)
+		{
+			unset($values[$key]);
+		}
+
 		$optionsPerRow = (int) $this->getParams()->get('options_per_row', 4);
 		$elBeforeLabel = (bool) $this->getParams()->get('element_before_label', true);
 
@@ -481,7 +559,7 @@ class plgFabrik_ElementList extends plgFabrik_Element
 		if ($params->get('allow_frontend_addto', false))
 		{
 			$onlylabel = $params->get('allowadd-onlylabel');
-			$grid[] = $this->getAddOptionFields($onlylabel, $repeatCounter);
+			$grid[] = $this->getAddOptionFields($repeatCounter, $onlylabel);
 		}
 		return implode("\n", $grid);
 	}
@@ -528,7 +606,12 @@ class plgFabrik_ElementList extends plgFabrik_Element
 		{
 			$this->defaults = array();
 		}
-		$valueKey = $repeatCounter . serialize($opts);
+
+		/*
+		 *  $$$ rob 20/08/2012 - added $data to serialized key
+		 *  Seems that db join _getOptionVals() _autocomplete_where is getting run a couple of times with key and labels being passed in
+		 */
+		$valueKey = $repeatCounter . serialize($opts) . serialize($data);
 		if (!array_key_exists($valueKey, $this->defaults))
 		{
 			$value = '';
@@ -538,10 +621,7 @@ class plgFabrik_ElementList extends plgFabrik_Element
 			$formModel = $this->getForm();
 			$element = $this->getElement();
 
-			// $$$rob - if no search form data submitted for the checkbox search element then the default
-			// selecton was being applied instead
-			$value = JArrayHelper::getValue($opts, 'use_default', true) == false ? '' : $this->getDefaultValue($data);
-
+			$value = $this->getDefaultOnACL($data, $opts);
 			$name = $this->getValueFullName($opts);
 
 			// $name could already be in _raw format - so get inverse name e.g. with or without raw
@@ -552,18 +632,26 @@ class plgFabrik_ElementList extends plgFabrik_Element
 				$rawNameKey = 'join.' . $joinid . '.' . $rawname;
 				if ($groupModel->canRepeat())
 				{
-					$value = FArrayHelper::getNestedValue($data, $nameKey . '.' . $repeatCounter, null);
-					if (is_null($value))
+					$v = FArrayHelper::getNestedValue($data, $nameKey . '.' . $repeatCounter, null);
+					if (is_null($v))
 					{
-						$value = FArrayHelper::getNestedValue($data, $rawNameKey . '.' . $repeatCounter, array());
+						$v = FArrayHelper::getNestedValue($data, $rawNameKey . '.' . $repeatCounter, null);
+					}
+					if (!is_null($v))
+					{
+						$value = $v;
 					}
 				}
 				else
 				{
-					$value = FArrayHelper::getNestedValue($data, $nameKey, null);
-					if (is_null($value))
+					$v = FArrayHelper::getNestedValue($data, $nameKey, null);
+					if (is_null($v))
 					{
-						$value = FArrayHelper::getNestedValue($data, $rawNameKey, array());
+						$v = FArrayHelper::getNestedValue($data, $rawNameKey, null);
+					}
+					if (!is_null($v))
+					{
+						$value = $v;
 					}
 					if (is_array($value) && (array_key_exists(0, $value) && is_array($value[0])))
 					{
@@ -617,11 +705,17 @@ class plgFabrik_ElementList extends plgFabrik_Element
 			{
 				$value = '';
 			}
+			// $$$ corner case where you have a form and a list for the same table on the same page
+			// and the list is being filtered with table___name[value]=foo on the query string.
+			if (is_array($value) && array_key_exists('value', $value))
+			{
+				$value = $value['value'];
+			}
 			$element->default = $value;
 			$formModel = $this->getForm();
 
 			// Stops this getting called from form validation code as it messes up repeated/join group validations
-			if (array_key_exists('runplugins', $opts) && $opts['runplugins'] == 1)
+			if (JArrayHelper::getValue($opts, 'runplugins', false) == 1)
 			{
 				FabrikWorker::getPluginManager()->runPlugins('onGetElementDefault', $formModel, 'form', $this);
 			}

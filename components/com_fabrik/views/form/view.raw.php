@@ -1,9 +1,9 @@
 <?php
 /**
- * @package Joomla
- * @subpackage Fabrik
- * @copyright Copyright (C) 2005 Rob Clayburn. All rights reserved.
- * @license http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
+ * @package     Joomla
+ * @subpackage  Fabrik
+ * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU/GPL, see LICENSE.php
  */
 
 // Check to ensure this file is included in Joomla!
@@ -11,15 +11,36 @@ defined('_JEXEC') or die();
 
 jimport('joomla.application.component.view');
 
+/**
+ * Fabrik Raw Form View
+ *
+ * @package     Joomla
+ * @subpackage  Fabrik
+ * @since       3.0
+ */
+
 class fabrikViewForm extends JView
 {
 
+	/**
+	 * Access value
+	 *
+	 * @var  int
+	 */
 	public $access = null;
+
+	/**
+	 * Inline edit view
+	 *
+	 * @return  void
+	 */
 
 	public function inlineEdit()
 	{
 		$model = $this->getModel('form');
 		$document = JFactory::getDocument();
+		$app = JFactory::getApplication();
+		$input = $app->input;
 
 		$form = $model->getForm();
 		if ($model->render() === false)
@@ -27,7 +48,9 @@ class fabrikViewForm extends JView
 			return false;
 		}
 		$this->groups = $this->get('GroupView');
-		$elementid = JRequest::getInt('elid'); //main trigger element's id
+
+		// Main trigger element's id
+		$elementid = $input->getInt('elid');
 
 		$html = array();
 		$html[] = '<div class="floating-tip-wrapper inlineedit" style="position:absolute">';
@@ -43,14 +66,12 @@ class fabrikViewForm extends JView
 				$html[] = '</li>';
 			}
 		}
-
 		$html[] = '</ul>';
 
-		if (JRequest::getBool('inlinesave') || JRequest::getBool('inlinecancel'))
+		if ($input->getBool('inlinesave') || $input->getBool('inlinecancel'))
 		{
-			//$html[] = '<ul class="fabrik_buttons">';
 			$html[] = '<ul class="">';
-			if (JRequest::getBool('inlinecancel') == true)
+			if ($input->getBool('inlinecancel') == true)
 			{
 				$html[] = '<li class="ajax-controls inline-cancel">';
 				$html[] = '<a href="#" class="">';
@@ -59,7 +80,7 @@ class fabrikViewForm extends JView
 				$html[] = '</li>';
 			}
 
-			if (JRequest::getBool('inlinesave') == true)
+			if ($input->getBool('inlinesave') == true)
 			{
 				$html[] = '<li class="ajax-controls inline-save">';
 				$html[] = '<a href="#" class="">';
@@ -75,7 +96,7 @@ class fabrikViewForm extends JView
 
 		$srcs = array();
 		$repeatCounter = 0;
-		$elementids = (array) JRequest::getVar('elementid');
+		$elementids = (array) $input->get('elementid', array(), 'array');
 		$eCounter = 0;
 		$onLoad = array();
 		$onLoad[] = "Fabrik.fireEvent('fabrik.list.inlineedit.setData');";
@@ -84,14 +105,14 @@ class fabrikViewForm extends JView
 		{
 			$elementModel = $model->getElement($id, true);
 			$elementModel->getElement();
-			$elementModel->_editable = true;
+			$elementModel->setEditable(true);
 			$elementModel->formJavascriptClass($srcs);
 			$onLoad[] = "var o = " . $elementModel->elementJavascript($repeatCounter) . ";";
 			if ($eCounter === 0)
 			{
 				$onLoad[] = "o.select();";
 				$onLoad[] = "o.focus();";
-				$onLoad[] = "Fabrik.inlineedit_$elementid.token = '" . JUtility::getToken() . "';";
+				$onLoad[] = "Fabrik.inlineedit_$elementid.token = '" . JSession::getFormToken() . "';";
 			}
 			$eCounter++;
 			$onLoad[] = "Fabrik.inlineedit_$elementid.elements[$id] = o";
@@ -99,21 +120,29 @@ class fabrikViewForm extends JView
 		FabrikHelperHTML::script($srcs, implode("\n", $onLoad));
 	}
 
-	function display($tpl = null)
+	/**
+	 * Execute and display a template script.
+	 *
+	 * @param   string  $tpl  The name of the template file to parse; automatically searches through the template paths.
+	 *
+	 * @return  mixed  A string if successful, otherwise a JError object.
+	 */
+
+	public function display($tpl = null)
 	{
 		$app = JFactory::getApplication();
+		$input = $app->input;
 		$w = new FabrikWorker;
 		$config = JFactory::getConfig();
 		$model = $this->getModel('form');
 		$document = JFactory::getDocument();
 
-		//Get the active menu item
+		// Get the active menu item
 		$usersConfig = JComponentHelper::getParams('com_fabrik');
 		$form = $model->getForm();
 		$model->render();
 
-		$listModel = $model->_table;
-		$table = is_object($listModel) ? $listModel->getTable() : null;
+		$listModel = $model->getListModel();
 		if (!$model->canPublish())
 		{
 			if (!$app->isAdmin())
@@ -123,12 +152,11 @@ class fabrikViewForm extends JView
 			}
 		}
 
-		$this->assign('access', $model->checkAccessFromListSettings());
+		$this->access = $model->checkAccessFromListSettings();
 		if ($this->access == 0)
 		{
 			return JError::raiseWarning(500, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
-
 		if (is_object($listModel))
 		{
 			$joins = $listModel->getJoins();
@@ -137,13 +165,13 @@ class fabrikViewForm extends JView
 
 		$params = $model->getParams();
 		$params->def('icons', $app->getCfg('icons'));
-		$pop = (JRequest::getVar('tmpl') == 'component') ? 1 : 0;
+		$pop = ($input->get('tmpl') == 'component') ? 1 : 0;
 		$params->set('popup', $pop);
 
-		$view = JRequest::getVar('view', 'form');
+		$view = $input->get('view', 'form');
 		if ($view == 'details')
 		{
-			$model->_editable = false;
+			$model->setEditable(false);
 		}
 
 		$groups = $model->getGroupsHiarachy();
@@ -167,10 +195,8 @@ class fabrikViewForm extends JView
 			{
 				if ($groupModel->isJoin())
 				{
-
 					$joinModel = $groupModel->getJoinModel();
 					$joinTable = $joinModel->getJoin();
-
 					$foreignKey = '';
 					if (is_object($joinTable))
 					{
@@ -188,7 +214,7 @@ class fabrikViewForm extends JView
 						else
 						{
 							//$$$ rob test!!!
-							if (!$groupParams->get('repeat_group_show_first'))
+							if (!$groupModel->canView())
 							{
 								continue;
 							}
@@ -224,7 +250,6 @@ class fabrikViewForm extends JView
 			}
 
 			$groupModel->repeatTotal = $repeatGroup;
-
 			$aSubGroups = array();
 			for ($c = 0; $c < $repeatGroup; $c++)
 			{
@@ -233,19 +258,20 @@ class fabrikViewForm extends JView
 				$elementModels = $groupModel->getPublishedElements();
 				foreach ($elementModels as $elementModel)
 				{
-					if (!$model->_editable)
+					if (!$model->isEditable())
 					{
-						// $$$ rob 22/03/2011 changes element keys by appending "_id" to the end, means that
-						// db join add append data doesn't work if for example the popup form is set to allow adding,
-						// but not editing records
-						//$elementModel->_inDetailedView = true;
-						$elementModel->_editable = false;
+						/* $$$ rob 22/03/2011 changes element keys by appending "_id" to the end, means that
+						 * db join add append data doesn't work if for example the popup form is set to allow adding,
+						 * but not editing records
+						 * $elementModel->_inDetailedView = true;
+						 */
+						$elementModel->setEditable(false);
 					}
 
-					//force reload?
+					// Force reload?
 					$elementModel->_HTMLids = null;
 					$elementHTMLId = $elementModel->getHTMLId($c);
-					if (!$model->_editable)
+					if (!$model->isEditable())
 					{
 						$JSONarray[$elementHTMLId] = $elementModel->getROValue($model->_data, $c);
 					}
@@ -253,8 +279,8 @@ class fabrikViewForm extends JView
 					{
 						$JSONarray[$elementHTMLId] = $elementModel->getValue($model->_data, $c);
 					}
-					//test for paginate plugin
-					if (!$model->_editable)
+					// Test for paginate plugin
+					if (!$model->isEditable())
 					{
 						$elementModel->_HTMLids = null;
 						$elementModel->_inDetailedView = true;
@@ -269,4 +295,3 @@ class fabrikViewForm extends JView
 	}
 
 }
-?>

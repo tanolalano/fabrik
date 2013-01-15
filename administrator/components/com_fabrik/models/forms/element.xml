@@ -157,22 +157,25 @@
 			</field>
 			
 			<field name="filter_groupby"
-				type="radio"
+				type="list"
 				default="text"
-				label="COM_FABRIK_FIELD_ORDER_BY_LABEL">
+				label="COM_FABRIK_FIELD_ORDER_BY_LABEL"
+				description="COM_FABRIK_FIELD_ORDER_BY_DESC">
 					<option value="text">COM_FABRIK_LABEL</option>
 					<option value="value">COM_FABRIK_VALUE</option>
+					<option value="-1">COM_FABRIK_NONE</option>
 			</field>
-			
+		<!-- 	
 			<field name="inc_in_search_all"
-				type="radio"
-				default="1"
+				type="list"
+				default="2"
 				label="COM_FABRIK_FIELD_INCLUDE_IN_SEARCH_ALL_LABEL"
 				description="COM_FABRIK_FIELD_INCLUDE_IN_SEARCH_ALL_DESC" >
 					<option value="0">JNO</option>
 					<option value="1">JYES</option>
+					<option value="2">JDEFAULT</option>
 			</field>
-			
+			 -->
 			<field name="inc_in_adv_search"
 				type="radio"
 				default="1"
@@ -228,6 +231,15 @@
 			default="1" 
 			label="COM_FABRIK_FIELD_INCLUDE_IN_LIST_QUERY_LABEL" 
 			description="COM_FABRIK_FIELD_INCLUDE_IN_LIST_QUERY_DESC">
+				<option value="0">JNO</option>
+				<option value="1">JYES</option>
+			</field>
+			
+			<field name="always_render" 
+			type="radio" 
+			default="0" 
+			label="COM_FABRIK_FIELD_ALWAYS_RENDER_LABEL" 
+			description="COM_FABRIK_FIELD_ALWAYS_RENDER_DESC">
 				<option value="0">JNO</option>
 				<option value="1">JYES</option>
 			</field>
@@ -524,8 +536,8 @@
 				<field name="tiplocation" 
 					type="list"
 					default="top"
-					label="COM_FABRIK_FIELD_TIP_LOCATION_LABEL"
-					description="COM_FABRIK_FIELD_TIP_LOCATION_DESC">
+					label="COM_FABRIK_FIELD_ELEMENT_TIP_LOCATION_LABEL"
+					description="COM_FABRIK_FIELD_ELEMENT_TIP_LOCATION_DESC">
 						<option value="top">COM_FABRIK_TIP_LOCATION_TOP</option>
 						<option value="right">COM_FABRIK_TIP_LOCATION_RIGHT</option>
 						<option value="bottom">COM_FABRIK_TIP_LOCATION_BOTTOM</option>

@@ -1,5 +1,7 @@
 <?php
 /**
+ * Fabrik Group Model
+ *
  * @package     Joomla
  * @subpackage  Fabrik
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -21,39 +23,88 @@ jimport('joomla.application.component.model');
 class FabrikFEModelGroup extends FabModel
 {
 
-	/** @var object parameters */
+	/**
+	 * Parameters
+	 *
+	 * @var JRegistry
+	 */
 	protected $_params = null;
 
-	/** @var int id of group to load */
+	/**
+	 * Id of group to load
+	 *
+	 * @var int
+	 */
 	var $_id = null;
 
-	/** @var object group table */
+	/**
+	 * Group table
+	 *
+	 * @var JTable
+	 */
 	var $_group = null;
 
-	/** @var object form model */
+	/**
+	 * Form model
+	 *
+	 * @var FabrikFEModelForm
+	 */
 	protected $_form = null;
 
-	/** @var object list model */
+	/**
+	 * List model
+	 *
+	 * @var FabrikFEModelList
+	 */
 	var $_table = null;
 
+	/**
+	 * Join model
+	 *
+	 * @var FabrikFEModelJoin
+	 */
 	var $_joinModel = null;
 
-	/** @var array of element plugins */
+	/**
+	 * Element plugins
+	 *
+	 * @var array
+	 */
 	public $elements = null;
 
-	/** @var array of published element plugins */
+	/**
+	 * Published element plugins
+	 *
+	 * @var array
+	 */
 	public $publishedElements = null;
 
-	/** @var array of published element plugins shown in the list */
+	/**
+	 * Published element plugins shown in the list
+	 *
+	 * @var array
+	 */
 	protected $publishedListElements = null;
 
-	/** @var int how many times the group's data is repeated */
+	/**
+	 * How many times the group's data is repeated
+	 *
+	 *  @var int
+	 */
 	public $repeatTotal = null;
 
-	/** @var array of form ids that the group is in (maximum of one value)*/
+	/**
+	 * Form ids that the group is in (maximum of one value)
+	 *
+	 * @var array
+	 */
 	protected $formsIamIn = null;
 
-	/** @var bool can the group be viewed (set to false if no elements are visible in the group**/
+	/**
+	 * Can the group be viewed (set to false if no elements are visible in the group
+	 *
+	 * @var bool
+	 */
 	protected $canView = null;
 
 	/**
@@ -113,7 +164,7 @@ class FabrikFEModelGroup extends FabModel
 	/**
 	 * Set the group row
 	 *
-	 * @param   FabTableGroup  $group  fabrik table
+	 * @param   FabTableGroup  $group  Fabrik table
 	 *
 	 * @since   3.0.5
 	 *
@@ -137,6 +188,7 @@ class FabrikFEModelGroup extends FabModel
 		{
 			return $this->canView;
 		}
+		$params = $this->getParams();
 		$elementModels = $this->getPublishedElements();
 		$this->canView = false;
 		foreach ($elementModels as $elementModel)
@@ -148,15 +200,58 @@ class FabrikFEModelGroup extends FabModel
 				continue;
 			}
 			$this->canView = true;
+			break;
 		}
+
+		// Get the group access level
+		$user = JFactory::getUser();
+		$groups = $user->getAuthorisedViewLevels();
+		$groupAccess = $params->get('access', '');
+		if ($groupAccess !== '')
+		{
+			$this->canView = in_array($groupAccess, $groups);
+
+			// If the user can't access the group return that and ingore repeat_group_show_first option
+			if (!$this->canView)
+			{
+				return $this->canView;
+			}
+		}
+
+		/*
+		 * Sigh - seems that the repeat group 'repeat_group_show_first' property has been bastardized to be a setting
+		 * that is applicable to a group even when not in a repeat group, and has basically become a standard group setting.
+		 * My bad for labelling it poorly to start with.
+		 * So, now if this is set to 'no' the group is not shown but canView was returning true - doh! Caused issues in
+		 * multi page forms where we were trying to set/check errors in groups which were not attached to the form.
+		 */
+		$formModel = $this->getFormModel();
+		$showGroup = $params->get('repeat_group_show_first', '1');
+		if ($showGroup == 0)
+		{
+			$this->canView = false;
+		}
+
+		// If editable but only show group in details view:
+		if ($formModel->isEditable() && $showGroup == 2)
+		{
+			$this->canView = false;
+		}
+
+		// If form not editable and show group in form view:
+		if (!$formModel->isEditable() && $showGroup == 3)
+		{
+			$this->canView = false;
+		}
+
 		return $this->canView;
 	}
 
 	/**
-	 * set the context in which the element occurs
+	 * Set the context in which the element occurs
 	 *
-	 * @param   object  $formModel  form model
-	 * @param   object  $listModel  list model
+	 * @param   object  $formModel  Form model
+	 * @param   object  $listModel  List model
 	 *
 	 * @return void
 	 */
@@ -168,7 +263,7 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * get an array of forms that the group is in
+	 * Get an array of forms that the group is in
 	 * NOTE: now a group can only belong to one form
 	 *
 	 * @return  array  form ids
@@ -192,7 +287,7 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * returns array of elements in the group
+	 * Returns array of elements in the group
 	 *
 	 * NOTE: pretty sure that ->elements will already be loaded
 	 * within $formModel->getGroupsHiarachy()
@@ -214,14 +309,19 @@ class FabrikFEModelGroup extends FabModel
 			if (empty($this->elements))
 			{
 				// Horrible hack for when saving group
-				$this->elements = $allGroups[$this->getId()]->elements;
+
+				/*
+				 * $$$ rob Using @ for now as in inline edit in podion you get multiple notices when
+				 * saving the status element
+				 */
+				$this->elements = @$allGroups[$this->getId()]->elements;
 			}
 		}
 		return $this->elements;
 	}
 
 	/**
-	 * randomise the element list (note the array is the pre-rendered elements)
+	 * Randomise the element list (note the array is the pre-rendered elements)
 	 *
 	 * @param   array  &$elements  form views processed/formatted list of elements that the form template uses
 	 *
@@ -243,7 +343,7 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * set the element column css allows for group colum settings to be applied
+	 * Set the element column css allows for group colum settings to be applied
 	 *
 	 * @param   object  &$element  prerender element properties
 	 * @param   int     $elCount   current key when looping over elements.
@@ -258,6 +358,13 @@ class FabrikFEModelGroup extends FabModel
 		$params = $this->getParams();
 		$element->column = '';
 		$colcount = (int) $params->get('group_columns');
+
+		// Bootstrap grid formatting
+		$element->span = $colcount == 0 ? 12 : floor(12 / $colcount);
+		$element->offset = $params->get('group_offset', 0);
+
+		$element->startRow = false;
+		$element->endRow = false;
 		if ($colcount > 1)
 		{
 			$widths = $params->get('group_column_widths', '');
@@ -325,7 +432,7 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * get the groups list model
+	 * Get the groups list model
 	 *
 	 * @return  object	list model
 	 */
@@ -371,7 +478,8 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * get a list of all elements which are set to show in list or are set to include in list query
+	 * Get a list of all elements which are set to show in list or
+	 * are set to include in list query
 	 *
 	 * @since   3.0.6
 	 *
@@ -403,6 +511,16 @@ class FabrikFEModelGroup extends FabModel
 				 */
 				if ($element->published == 1)
 				{
+					/**
+					 * As this function seems to be used to build both the list view and the form view, we should NOT
+					 * include elements in the list query if the user can not view them, as their data is sent to the json object
+					 * and thus visible in the page source
+					 */
+					if (JRequest::getVar('view') == 'list' && !$elementModel->canView())
+					{
+						continue;
+					}
+
 					if (empty($showInList))
 					{
 						if ($element->show_in_list_summary || $params->get('include_in_list_query', 1) == 1)
@@ -529,7 +647,19 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * is the group a join?
+	* Is the group a repeat group
+	*
+	* @return  bool
+	*/
+
+	public function canCopyElementValues()
+	{
+		$params = $this->getParams();
+		return $params->get('repeat_copy_element_values', '0') === '1';
+	}
+
+	/**
+	 * Is the group a join?
 	 *
 	 * @return  bool
 	 */
@@ -540,7 +670,22 @@ class FabrikFEModelGroup extends FabModel
 	}
 
 	/**
-	 * get the group's associated join model
+	 *
+	 * Get the group's join_id
+	 *
+	 * @return  mixed   join_id, or false if not a join
+	 */
+	public function getJoinId()
+	{
+		if (!$this->isJoin())
+		{
+			return false;
+		}
+		return $this->getGroup()->join_id;
+	}
+
+	/**
+	 * Get the group's associated join model
 	 *
 	 * @return  object  join model
 	 */
@@ -632,7 +777,7 @@ class FabrikFEModelGroup extends FabModel
 		 * changed to remove (or change) paging, but user still has session state set.  So it was throwing
 		 * a PHP 'undefined index' notice.
 		 */
-		if (array_key_exists($startpage, $pages) && is_array($pages[$startpage]) && !in_array($groupTable->id, $pages[$startpage]) || $showGroup == 0)
+		if (array_key_exists($startpage, $pages) && is_array($pages[$startpage]) && !in_array($groupTable->id, $pages[$startpage]) || $showGroup == -1 || $showGroup == 0)
 		{
 			$groupTable->css .= ";display:none;";
 		}
@@ -647,8 +792,9 @@ class FabrikFEModelGroup extends FabModel
 		$group->title = $w->parseMessageForPlaceHolder($groupTable->label, $formModel->_data, false);
 
 		$group->name = $groupTable->name;
-		$group->displaystate = ($group->canRepeat == 1 && $formModel->_editable) ? 1 : 0;
+		$group->displaystate = ($group->canRepeat == 1 && $formModel->isEditable()) ? 1 : 0;
 		$group->maxRepeat = (int) $params->get('repeat_max');
+		$group->minRepeat = (int) $params->get('repeat_min');
 		$group->showMaxRepeats = $params->get('show_repeat_max', '0') == '1';
 		$group->canAddRepeat = $this->canAddRepeat();
 		$group->canDeleteRepeat = $this->canDeleteRepeat();
@@ -708,8 +854,9 @@ class FabrikFEModelGroup extends FabModel
 
 	public function resetPublishedElements()
 	{
-		$this->publishedElements = null;
-		$this->publishedListElements = null;
+		unset($this->publishedElements);
+		unset($this->publishedListElements);
+		unset($this->elements);
 	}
 
 }

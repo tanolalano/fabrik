@@ -1,5 +1,7 @@
 <?php
 /**
+ * Add a user to a mailchimp mailing list
+ *
  * @package     Joomla.Plugin
  * @subpackage  Fabrik.form.mailchimp
  * @copyright   Copyright (C) 2005 Fabrik. All rights reserved.
@@ -39,9 +41,9 @@ class plgFabrik_FormMailchimp extends plgFabrik_Form
 	{
 		if ($params->get('mailchimp_userconfirm', true))
 		{
-			$this->html = "
-			<label class=\"mailchimpsignup\"><input type=\"checkbox\" name=\"fabrik_mailchimp_signup\" class=\"fabrik_mailchimp_signup\" value=\"1\"  />
-			 " . $params->get('mailchimp_signuplabel') . "</label>";
+			$checked = JRequest::getVar('fabrik_mailchimp_signup', '') !== '' ? ' checked="checked"' : '';
+			$this->html = '<label class="mailchimpsignup"><input type="checkbox" name="fabrik_mailchimp_signup" class="fabrik_mailchimp_signup" value="1" '
+				. $checked . '/>' . $params->get('mailchimp_signuplabel') . '</label>';
 		}
 		else
 		{
@@ -135,6 +137,9 @@ class plgFabrik_FormMailchimp extends plgFabrik_Form
 					{
 						// DOn't use emailData as that contains html markup which is not shown in the list view
 						$opts[strtoupper($k)] = $w->parseMessageForPlaceHolder($v, $formModel->_formData);
+
+						// But... labels for db joins etc are not availabel in _formData
+						$opts[strtoupper($k)] = $w->parseMessageForPlaceHolder($v, $emailData);
 					}
 					$opts['GROUPINGS'] = $groups;
 				}
@@ -150,7 +155,7 @@ class plgFabrik_FormMailchimp extends plgFabrik_Form
 		if ($api->errorCode)
 		{
 			$formModel->_arErrors['mailchimp_error'] = true;
-			JError::raiseNotice(500, $api->errorCode . ':' . $api->errorMessage);
+			JError::raiseNotice($api->errorCode, $api->errorMessage);
 			return false;
 		}
 		else

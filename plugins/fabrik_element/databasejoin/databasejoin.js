@@ -21,14 +21,14 @@ var FbDatabasejoin = new Class({
 		this.activeSelect = false;
 		this.plugin = 'databasejoin';
 		this.parent(element, options);
-		this.changeEvents = []; // workaround for change events getting zapped on clone
 		this.init();
+		this.start();
 	},
 	
 	watchAdd: function () {
 		if (c = this.getContainer()) {
 			var b = c.getElement('.toggle-addoption');
-			//if duplicated remove old events
+			// If duplicated remove old events
 			b.removeEvent('click', this.startEvent);
 			b.addEvent('click', this.startEvent);
 		}
@@ -39,8 +39,30 @@ var FbDatabasejoin = new Class({
 	 * inside
 	 */
 	start: function (e) {
+		// First time loading
+		var onContentLoaded = function () {},
+		destroy = false,
+		visible = false;
+		if (e) {
+			// Loading from click
+			e.stop();
+			onContentLoaded = function (win) {
+				win.fitToContent();
+			};
+			
+			// @FIXME - if set to true, then click addrow, click select rows, click add row => can't submit the form
+			// if set to false then theres an issue with loading data in repeat groups: see window.close()
+			destroy = true;
+			visible = true;
+		}
+		if (this.options.popupform === 0 || this.options.allowadd === false) {
+			return;
+		}
 		this.activePopUp = true;
 		var url = "index.php?option=com_fabrik&task=form.view&tmpl=component&ajax=1&formid=" + this.options.popupform;
+		if (typeOf(this.element) === 'null') {
+			return;
+		}
 		var id = this.element.id + '-popupwin';
 		this.windowopts = {
 			'id': id,
@@ -53,23 +75,22 @@ var FbDatabasejoin = new Class({
 			'y': this.options.popwiny,
 			'minimizable': false,
 			'collapsible': true,
-			'onContentLoaded': function (win) {
-				win.fitToContent();
-			}
+			'visible': visible,
+			'onContentLoaded': onContentLoaded,
+			destroy: destroy
 		};
 		this.win = Fabrik.getWindow(this.windowopts);
-		e.stop();
 	},
 	
 	getBlurEvent: function () {
-		if (this.options.display_type === 'auto-complete') {
+		if (this.options.displayType === 'auto-complete') {
 			return 'change'; 
 		}
 		return this.parent();
 	},
 	
 	/**
-	 * adds an option to the db join element, for dropdowns and radio buttons
+	 * Adds an option to the db join element, for dropdowns and radio buttons
 	 * (where only one selection is possible from a visible list of options)
 	 * the new option is only selected if its value = this.options.value
 	 * @param	string	value
@@ -78,11 +99,11 @@ var FbDatabasejoin = new Class({
 	
 	addOption: function (v, l)
 	{
-		var opt, selected, chxed;
+		var opt, selected, chxed, last, subOpts = [], injectWhere, labelfield;
 		if (v === '') {
-			return;
+			// return;
 		}
-		switch (this.options.display_type) {
+		switch (this.options.displayType) {
 		case 'dropdown':
 		/* falls through */
 		case 'multilist':
@@ -96,21 +117,30 @@ var FbDatabasejoin = new Class({
 			labelfield.value = l;
 			break;
 		case 'checkbox':
-			var chxs = this.element.getElements('> .fabrik_subelement');
-			var newchx = chxs.getLast().clone();
-			newchx.getElement('span').set('text', l);
-			newchx.getElement('input').set('value', v);
-			var last = chxs.length === 0 ? this.element : chxs.getLast();
-			newchx.inject(last, 'after');
-			newchx.getElement('input').checked = true;
+			chxed = (v === this.options.value) ? true : false;
+			subOpts = this.element.getElements('> .fabrik_subelement');
+			opt = this.getCheckboxTmplNode().clone();
+			var i = opt.getElement('input');
+			i.name = i.name.replace(/\[\d+\]$/, '[' + subOpts.length + ']');
+			
+			opt.getElement('span').set('text', l);
+			opt.getElement('input').set('value', v);
+			last = subOpts.length === 0 ? this.element : subOpts.getLast();
+			injectWhere = subOpts.length === 0 ? 'bottom' : 'after';
+			opt.inject(last, injectWhere);
+			opt.getElement('input').checked = chxed;
 			
 			var ids = this.element.getElements('.fabrikHide > .fabrik_subelement');
-			var newid = ids.getLast().clone();
+			var newid = this.getCheckboxIDTmplNode().clone();
 			newid.getElement('span').set('text', l);
 			newid.getElement('input').set('value', 0); // to add a new join record set to 0
-			last = ids.length === 0 ? this.element.getElements('.fabrikHide') : ids.getLast();
-			newid.inject(last, 'after');
-			newid.getElement('input').checked = true;
+			last = ids.length === 0 ? this.element.getElement('.fabrikHide') : ids.getLast();
+			newid.inject(last, injectWhere);
+			
+			i = newid.getElement('input');
+			// Update end [n]
+			i.name = i.name.replace(/\[\d+\]$/, '[' + ids.length + ']');
+			newid.getElement('input').checked = chxed;
 			
 			break;
 		case 'radio':
@@ -126,13 +156,60 @@ var FbDatabasejoin = new Class({
 				'name': this.options.element + '[]',
 				'value': v
 			}), new Element('span').set('text', l)]));
-			opt.inject(document.id(this.element.id).getElements('.fabrik_subelement').getLast(), 'after');
+			subOpts = this.element.getElements('> .fabrik_subelement');
+			last = subOpts.length === 0 ? this.element : subOpts.getLast();
+			injectWhere = subOpts.length === 0 ? 'bottom' : 'after';
+			opt.inject(last, injectWhere);
 			break;
 		}
 	},
 	
 	/**
-	 * send an ajax request to requery the element options and update the element if new options found
+	 * As cdd elements clear out the sub options before repopulating we need
+	 * to grab a copy of one of the checkboxes to use as a template node when recreating
+	 * the list
+	 * 
+	 * @return  dom node .fabrik_subelement (hidden id checkbox containing fk value)
+	 */
+	getCheckboxIDTmplNode: function () {
+		if (!this.chxTmplIDNode && this.options.displayType === 'checkbox')
+		{
+			var chxs = this.element.getElements('.fabrikHide > .fabrik_subelement');
+			if (chxs.length === 0) {
+				this.chxTmplIDNode = this.element.getElement('.chxTmplIDNode').getChildren()[0].clone();
+				this.element.getElement('.chxTmplIDNode').destroy();
+			} else {
+				this.chxTmplIDNode = chxs.getLast().clone();
+			}
+		}
+		return this.chxTmplIDNode;
+	},
+	
+	/**
+	 * As cdd elements clear out the sub options before repopulating we need
+	 * to grab a copy of one of the checkboxes to use as a template node when recreating
+	 * the list
+	 * 
+	 * @return  dom node .fabrik_subelement (visible checkbox)
+	 */
+	getCheckboxTmplNode: function () {
+		if (!this.chxTmplNode && this.options.displayType === 'checkbox')
+		{
+			var chxs = this.element.getElements('> .fabrik_subelement');
+			if (chxs.length === 0) {
+				this.chxTmplNode = this.element.getElement('.chxTmplNode').getChildren()[0].clone();
+				this.element.getElement('.chxTmplNode').destroy();
+			} else {
+				this.chxTmplNode = chxs.getLast().clone();
+			}
+			
+		}
+		return this.chxTmplNode;
+	},
+	
+	/**
+	 * Send an ajax request to requery the element options and update the element if new options found
+	 * 
 	 * @param	string	(optional) additional value to get the updated value for (used in select)
 	 */
 	
@@ -146,6 +223,12 @@ var FbDatabasejoin = new Class({
 				'method': 'ajax_getOptions',
 				'element_id': this.options.id
 			};
+		// $$$ hugh - don't think we need to fetch values if auto-complete
+		// and v is empty, otherwise we'll just fetch every row in the target table,
+		// and do thing with it in onComplete?
+		if (this.options.displayType === 'auto-complete' && v === '') {
+			return;
+		}
 		if (v) {
 			data[this.strElement + '_raw'] = v;
 			//joined elements strElement isnt right so use fullName as well
@@ -156,8 +239,8 @@ var FbDatabasejoin = new Class({
 			'data': data,
 			onSuccess: function (json) {
 				var existingValues = this.getOptionValues();
-				//if duplicating an element in a repeat group when its auto-complete we dont want to update its value
-				if (this.options.display_type === 'auto-complete' && v === '' && existingValues.length === 0) {
+				// If duplicating an element in a repeat group when its auto-complete we dont want to update its value
+				if (this.options.displayType === 'auto-complete' && v === '' && existingValues.length === 0) {
 					return;
 				}
 				json.each(function (o) {
@@ -178,7 +261,7 @@ var FbDatabasejoin = new Class({
 	getOptionValues: function () {
 		var o;
 		var values = [];
-		switch (this.options.display_type) {
+		switch (this.options.displayType) {
 		case 'dropdown':
 		/* falls through */
 		case 'multilist':
@@ -215,13 +298,13 @@ var FbDatabasejoin = new Class({
 				var v = r.data[this.options.key];
 				var l = r.data[this.options.label];
 					
-				switch (this.options.display_type) {
+				switch (this.options.displayType) {
 				case 'dropdown':
 				/* falls through */
 				case 'multilist':
 					var o = this.element.getElements('option').filter(function (o, x) {
 						if (o.get('value') === v) {
-							this.options.display_type === 'dropdown' ? this.element.selectedIndex = x : o.selected = true;
+							this.options.displayType === 'dropdown' ? this.element.selectedIndex = x : o.selected = true;
 							return true;
 						}
 					}.bind(this));
@@ -291,7 +374,8 @@ var FbDatabasejoin = new Class({
 		this.activeSelect = true;
 		e.stop();
 		var id = this.element.id + '-popupwin-select';
-		var url = Fabrik.liveSite + "index.php?option=com_fabrik&view=list&tmpl=component&layout=dbjoinselect&ajax=1&listid=" + this.options.listid;
+		var url = this.getContainer().getElement('a.toggle-selectoption').href;
+		url += '&layout=dbjoinselect';
 		url += "&triggerElement=" + this.element.id;
 		url += "&resetfilters=1";
 		url += '&c=' + this.options.listRef;
@@ -356,8 +440,7 @@ var FbDatabasejoin = new Class({
 			}
 		}
 		if (!found) {
-			//if (this.element.get('tag') === 'input') {
-			if (this.options.display_type === 'auto-complete') {
+			if (this.options.displayType === 'auto-complete') {
 				this.element.value = val;
 				this.updateFromServer(val);
 			} else {
@@ -378,7 +461,7 @@ var FbDatabasejoin = new Class({
 	},
 	
 	/**
-	 * optionally show a description which is another field from the joined table.
+	 * Optionally show a description which is another field from the joined table.
 	 */
 	
 	showDesc: function (e) {
@@ -401,6 +484,7 @@ var FbDatabasejoin = new Class({
 	},
 	
 	getValue: function () {
+		var v = null;
 		this.getElement();
 		if (!this.options.editable) {
 			return this.options.value;
@@ -408,7 +492,7 @@ var FbDatabasejoin = new Class({
 		if (typeOf(this.element) === 'null') {
 			return '';
 		}
-		switch (this.options.display_type) {
+		switch (this.options.displayType) {
 		case 'dropdown':
 		/* falls through */
 		default:
@@ -427,7 +511,7 @@ var FbDatabasejoin = new Class({
 		case 'auto-complete':
 			return this.element.value;
 		case 'radio':
-			var v = '';
+			v = '';
 			this._getSubElements().each(function (sub) {
 				if (sub.checked) {
 					v = sub.get('value');
@@ -436,12 +520,20 @@ var FbDatabasejoin = new Class({
 				return null;
 			});
 			return v;
+		case 'checkbox':
+			v = [];
+			this._getSubElements().each(function (sub) {
+				if (sub.checked) {
+					v.push(sub.get('value'));
+				}
+			});
+			return v;
 		}
 	},
 	
 	getValues: function () {
 		var v = $A([]);
-		var search = (this.options.display_type !== 'dropdown') ? 'input' : 'option';
+		var search = (this.options.displayType !== 'dropdown') ? 'input' : 'option';
 		document.id(this.element.id).getElements(search).each(function (f) {
 			v.push(f.value);
 		});
@@ -450,19 +542,12 @@ var FbDatabasejoin = new Class({
 	
 	cloned: function (c) {
 		//c is the repeat group count
-		// @TODO this is going to wipe out any user added change events to the element
-		// cant' figure out how to just remove the cdd change events.
-		// $$$ hugh - added workaround for change events, by storing them during addNewEvent
-		// and re-adding them after we do this. 
-		this.element.removeEvents('change');
 		this.activePopUp = false;
-		this.changeEvents.each(function (js) {
-			this.addNewEventAux('change', js);
-		}.bind(this));
+		this.parent(c);
 		this.init();
 		this.watchSelect();
-		if (this.options.display_type === 'auto-complete') {
-			//update auto-complete fields id and create new autocompleter object for duplicated element
+		if (this.options.displayType === 'auto-complete') {
+			// Update auto-complete fields id and create new autocompleter object for duplicated element
 			var f = this.getAutoCompleteLabelField();
 			f.id = this.element.id + '-auto-complete';
 			f.name = this.element.name.replace('[]', '') + '-auto-complete';
@@ -472,16 +557,22 @@ var FbDatabasejoin = new Class({
 	},
 	
 	init: function () {
-		//if users can add records to the database join drop down
+		
+		this.getCheckboxTmplNode();
+		this.getCheckboxIDTmplNode();
+		
+		// If users can add records to the database join drop down
 		if (this.options.allowadd === true && this.options.editable !== false) {
 			this.startEvent = this.start.bindWithEvent(this);
 			this.watchAdd();
 			Fabrik.addEvent('fabrik.form.submitted', function (form, json) {
-				//fired when form submitted - enables element to update itself with any new submitted data
+
+				// Fired when form submitted - enables element to update itself with any new submitted data
 				if (this.options.popupform === form.id) {
 					// rob previously we we doing appendInfo() but that didnt get the concat labels for the database join
-					if (this.options.display_type === 'auto-complete') {
-						//need to get v if autocomplete and updating from posted popup form as we only want to get ONE 
+					if (this.options.displayType === 'auto-complete') {
+						
+						// Need to get v if autocomplete and updating from posted popup form as we only want to get ONE 
 						// option back inside updateFromServer;
 						var myajax = new Request.JSON({
 							'url': Fabrik.liveSite + 'index.php?option=com_fabrik&view=form&format=raw',
@@ -505,18 +596,22 @@ var FbDatabasejoin = new Class({
 			if (this.options.showDesc === true) {
 				this.element.addEvent('change', this.showDesc.bindWithEvent(this));
 			}
-			if (this.options.displayType === 'checkbox') {
-				// $$$rob 15/07/2011 - when selecting checkboxes have to programatically select hidden checkboxes which store the join ids.
-				var selector = 'input[name*=' + this.options.joinTable + '___' + this.options.elementShortName + ']';
-				var idSelector = 'input[name*=' + this.options.joinTable + '___id]';
-				this.element.addEvent('click:relay(' + selector + ')', function (i) {
-					this.element.getElements(selector).each(function (tmp, k) {
-						if (tmp === i.target) {
-							this.element.getElements(idSelector)[k].checked = i.target.checked;
-						}
-					}.bind(this));
+			this.watchJoinCheckboxes();
+		}
+	},
+	
+	watchJoinCheckboxes: function () {
+		if (this.options.displayType === 'checkbox') {
+			// $$$rob 15/07/2011 - when selecting checkboxes have to programatically select hidden checkboxes which store the join ids.
+			var selector = 'input[name*=' + this.options.joinTable + '___' + this.options.elementShortName + ']';
+			var idSelector = 'input[name*=' + this.options.joinTable + '___id]';
+			this.element.addEvent('click:relay(' + selector + ')', function (i) {
+				this.element.getElements(selector).each(function (tmp, k) {
+					if (tmp === i.target) {
+						this.element.getElements(idSelector)[k].checked = i.target.checked;
+					}
 				}.bind(this));
-			}
+			}.bind(this));
 		}
 	},
 	
@@ -538,7 +633,7 @@ var FbDatabasejoin = new Class({
 				this.element.addEvent(action, function (e) {
 					e.stop();
 					(typeOf(js) === 'function') ? js.delay(0) : eval(js);
-				});
+				}.bind(this));
 			}
 			break;
 		case 'radio':
@@ -546,8 +641,8 @@ var FbDatabasejoin = new Class({
 			this.subElements.each(function (el) {
 				el.addEvent(action, function (e) {
 					(typeOf(js) === 'function') ? js.delay(0) : eval(js);
-				});
-			});
+				}.bind(this));
+			}.bind(this));
 			break;
 		case 'auto-complete':
 			var f = this.getAutoCompleteLabelField();
@@ -555,24 +650,10 @@ var FbDatabasejoin = new Class({
 				f.addEvent(action, function (e) {
 					e.stop();
 					(typeOf(js) === 'function') ? js.delay(700) : eval(js);
-				});
+				}.bind(this));
 			}
 			break;
 		}		
-	},
-	
-	addNewEvent: function (action, js) {
-		if (action === 'load') {
-			this.loadEvents.push(js);
-			this.runLoadEvent(js);
-			return;
-		}
-		// $$$ hugh - workaround for change events getting zapped on clone, where
-		// we have to remove change events added by CDD's watching us
-		if (action === 'change') {
-			this.changeEvents.push(js);
-		}
-		this.addNewEventAux(action, js);
 	},
 	
 	decreaseName: function (delIndex) {
