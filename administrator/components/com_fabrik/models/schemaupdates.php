@@ -12,7 +12,7 @@ defined('_JEXEC') or die;
 require_once 'fabmodellist.php';
 
 /**
- * Ddatabase Schema Updates Admin List Model
+ * Database Schema Updates Admin List Model
  *
  * @package     Joomla.Administrator
  * @subpackage  Fabrik
@@ -67,6 +67,18 @@ class FabrikModelSchemaUpdates extends FabModelList
 		// Join over the users for the checked out user.
 		$query->select('u.name AS applied_by');
 		$query->join('LEFT', '#__users AS u ON applied_by = u.id');
+
+		// Filter by applied
+		$applied = $this->getState('filter.applied');
+		if (is_numeric($applied))
+		{
+			$query->where('applied = ' . (int) $applied);
+		}
+		elseif ($applied === '')
+		{
+			$query->where('(applied IN (0, 1, 2))');
+		}
+		echo $query;
 
 		// Add the list ordering clause.
 		$orderCol = $this->state->get('list.ordering', 'id');
@@ -165,6 +177,7 @@ class FabrikModelSchemaUpdates extends FabModelList
 	 * @return	JTable	A database object
 	 * @since	1.6
 	 */
+
 	public function getTable($type = 'SchemaUpdate', $prefix = 'FabrikTable', $config = array())
 	{
 		$config['dbo'] = FabriKWorker::getDbo();
@@ -179,6 +192,7 @@ class FabrikModelSchemaUpdates extends FabModelList
 	 * @param   string  $direction  An optional direction (asc|desc).
 	 * @since	1.6
 	 */
+
 	protected function populateState($ordering = null, $direction = null)
 	{
 		// Initialise variables.
@@ -188,17 +202,53 @@ class FabrikModelSchemaUpdates extends FabModelList
 		$params = JComponentHelper::getParams('com_fabrik');
 		$this->setState('params', $params);
 
-	/* 	$published = $app->getUserStateFromRequest($this->context . '.filter.published', 'filter_published', '');
-		$this->setState('filter.published', $published);
+		$applied = $app->getUserStateFromRequest($this->context . '.filter.applied', 'filter_applied', '');
+		$this->setState('filter.applied', $applied);
 
-		$search = $app->getUserStateFromRequest($this->context . '.filter.search', 'filter_search');
-		$this->setState('filter.search', $search);
+	}
 
-		//Load the form state
-		$package = $app->getUserStateFromRequest($this->context . '.filter.form', 'filter_form', '');
-		$this->setState('filter.form', $package);
+	/**
+	 * Run the update SQL
+	 *
+	 * @param   array  $ids  Ids of schema updates to run
+	 *
+	 * @return  int  # of schema updates successfully run
+	 */
 
-		// List state information.
-		parent::populateState('name', 'asc'); */
+	public function run($ids)
+	{
+		JArrayHelper::toInteger($ids);
+		$db = JFactory::getDbo();
+		$user = JFactory::getUser();
+		$now = JFactory::getDate();
+		$now = $now->toSql();
+		$success = 0;
+		foreach ($ids as $id)
+		{
+			$row = $this->getTable();
+			$row->load($id);
+			$log = JFile::read(JPATH_ROOT . '/logs/dbchangeset/' . $row->filename);
+			$db->setQuery($log);
+			if ($db->query())
+			{
+				$success ++;
+				$update = array();
+				$update['applied'] = 1;
+				$update['applied_by'] = $user->get('id');
+				$update['applied_date'] = $now;
+				$row->bind($update);
+				$row->store();
+			}
+			else
+			{
+				$update['applied'] = -1;
+				$update['applied_by'] = $user->get('id');
+				$update['applied_date'] = $now;
+				$row->bind($update);
+				$row->store();
+				JError::raiseNotice(500, $db->getErrorMsg());
+			}
+		}
+		return $success;
 	}
 }

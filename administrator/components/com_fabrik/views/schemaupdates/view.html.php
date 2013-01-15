@@ -61,10 +61,10 @@ class FabrikViewSchemaUpdates extends JView
 	protected function addToolbar()
 	{
 		require_once JPATH_COMPONENT . '/helpers/fabrik.php';
-		$canDo = FabrikHelper::getActions();
-
+		$canDo = FabrikAdminHelper::getActions();
 		JToolBarHelper::title(JText::_('COM_FABRIK_MANAGER_SCHEMA_UPDATES'), 'list.png');
-
+		JToolBarHelper::custom('schemaupdates.run', 'upload.png', 'upload_f2.png', 'Run');
+		JToolBarHelper::divider();
 		if ($canDo->get('core.admin'))
 		{
 			JToolBarHelper::preferences('com_fabrik');

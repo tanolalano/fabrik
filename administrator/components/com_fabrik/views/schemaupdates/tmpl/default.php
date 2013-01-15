@@ -9,6 +9,7 @@
 // No direct access
 defined('_JEXEC') or die;
 
+require_once JPATH_COMPONENT . '/helpers/adminhtml.php';
 JHtml::addIncludePath(JPATH_COMPONENT . '/helpers/html');
 JHtml::_('behavior.tooltip');
 JHTML::_('script', 'system/multiselect.js', false, true);
@@ -16,10 +17,25 @@ $user = JFactory::getUser();
 $userId = $user->get('id');
 $listOrder = $this->state->get('list.ordering');
 $listDirn = $this->state->get('list.direction');
+
+$alts = array('JPUBLISHED', 'JUNPUBLISHED', 'COM_FABRIK_ERR_CHANGESET_NOT_APPLIED');
+$imgs = array('publish_x.png', 'tick.png', 'publish_y.png');
+$tasks = array('run', '', 'run');
+$appliedState = $this->state->get('filter.applied');
+
 ?>
-<form action="<?php echo JRoute::_('index.php?option=com_fabrik&view=groups'); ?>" method="post" name="adminForm" id="adminForm">
+<form action="<?php echo JRoute::_('index.php?option=com_fabrik&view=schemaupdates'); ?>" method="post" name="adminForm" id="adminForm">
 	<fieldset id="filter-bar">
 
+		<div class="filter-select fltrt">
+
+			<select name="filter_applied" class="inputbox" onchange="this.form.submit()">
+				<option <?php echo $appliedState == 0 ? 'selected="selected"' : '' ?>value="0">Not applied</option>
+				<option <?php echo $appliedState == 1 ? 'selected="selected"' : '' ?>value="1">Applied</option>
+				<option <?php echo $appliedState == 2 ? 'selected="selected"' : '' ?>value="2">Failed</option>
+				<option <?php echo $appliedState == '' ? 'selected="selected"' : '' ?>value=""><?php echo JText::_('COM_FABRIK_ALL')?></option>
+			</select>
+		</div>
 	</fieldset>
 	<div class="clr"> </div>
 
@@ -33,7 +49,10 @@ $listDirn = $this->state->get('list.direction');
 				<th width="30%" >
 					<?php echo JHTML::_('grid.sort', 'COM_FABRIK_FILE', 'filename', $listDirn, $listOrder); ?>
 				</th>
-				<th width="18%" >
+				<th width="5%">
+					<?php echo JHTML::_('grid.sort', 'COM_FABRIK_APPLIED', 'applied', $listDirn, $listOrder); ?>
+				</th>
+				<th width="13%" >
 					<?php echo JHTML::_('grid.sort', 'COM_FABRIK_APPLED_BY', 'applied_by', $listDirn, $listOrder); ?>
 				</th>
 				<th width="15%">
@@ -49,7 +68,7 @@ $listDirn = $this->state->get('list.direction');
 		</thead>
 		<tfoot>
 			<tr>
-				<td colspan="7">
+				<td colspan="8">
 					<?php echo $this->pagination->getListFooter(); ?>
 				</td>
 			</tr>
@@ -71,6 +90,12 @@ $listDirn = $this->state->get('list.direction');
 						<a href="<?php echo $link; ?>">
 							<?php echo $item->filename; ?>
 						</a>
+					</td>
+					<td>
+						<?php
+						$canChange = $item->applied == 1 ? false : true;
+						echo FabrikHelperAdminHTML::multistate(array(0, 1, 2), $i, $item->applied, $tasks, $imgs, $alts, 'schemaupdates.', $canChange); ?>
+					</td>
 					<td>
 						<?php echo $item->applied_by; ?>
 					</td>

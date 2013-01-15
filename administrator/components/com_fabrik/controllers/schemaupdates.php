@@ -49,16 +49,27 @@ class FabrikControllerSchemaUpdates extends FabControllerAdmin
 	 *
 	 * @param   string  $name    model name
 	 * @param   string  $prefix  model prefix
+	 * @param   array   $config  Configuration array
 	 *
 	 * @since	3.0.7
 	 *
 	 * @return  object  models
 	 */
 
-	public function &getModel($name = 'SchemaUpdates', $prefix = 'FabrikModel')
+	public function &getModel($name = 'SchemaUpdates', $prefix = 'FabrikModel', $config = array('ignore_request' => true))
 	{
-		$model = parent::getModel($name, $prefix, array('ignore_request' => true));
+		$model = parent::getModel($name, $prefix, $config);
 		return $model;
+	}
+
+	public function run()
+	{
+		$app = JFactory::getApplication();
+		$input = $app->input;
+		$cids = $input->get('cid', array(), 'array');
+		$model = $this->getModel();
+		$numRun = $model->run($cids);
+		$this->setRedirect(JRoute::_('index.php?option='.$this->option.'&view='.$this->view_list, false), $numRun . ' records run');
 	}
 
 }

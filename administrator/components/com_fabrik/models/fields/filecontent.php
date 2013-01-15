@@ -37,6 +37,4 @@ class JFormFieldFilecontent extends JFormFieldText
 		return $start . parent::getInput() . '<br />' . $preview . "</div>";
 	}
 
-
-
 }

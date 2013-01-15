@@ -80,7 +80,7 @@ class FabrikHelperAdminHTML
 	 */
 
 	public static function multistate($values, $i, $selected, $tasks = array('publish', 'unpublish', 'alert'),
-		$imgs = array('publish_x.png', 'tick.png', 'alert.png'), $alts = array('JPUBLISHED', 'JUNPUBLISHED', 'NOTICE'), $prefix = '')
+		$imgs = array('publish_x.png', 'tick.png', 'alert.png'), $alts = array('JPUBLISHED', 'JUNPUBLISHED', 'NOTICE'), $prefix = '', $canChange = true)
 	{
 		$index = array_search($selected, $values);
 		if ($index === false)
@@ -91,11 +91,16 @@ class FabrikHelperAdminHTML
 		$alt = JText::_(JArrayHelper::getValue($alts, $index));
 
 		$img = JArrayHelper::getValue($imgs, $index);
-		$href = '
-			<a href="#" onclick="return listItemTask(\'cb' . $i . '\',\'' . $prefix . $task . '\')" title="' . $alt . '">'
-			. JHtml::_('image', 'admin/' . $img, $alt, null, true) . '</a>';
+		$img = JHtml::_('image', 'admin/' . $img, $alt, null, true);
 
-		return $href;
+		if ($canChange)
+		{
+			$img = '
+			<a href="#" onclick="return listItemTask(\'cb' . $i . '\',\'' . $prefix . $task . '\')" title="' . $alt . '">'
+								. $img . '</a>';
+		}
+
+		return $img;
 	}
 
 }
