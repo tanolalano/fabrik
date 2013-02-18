@@ -17,7 +17,7 @@ defined('_JEXEC') or die();
  * @package     Joomla
  * @subpackage  Fabrik.helpers
  * @since       3.0
- */
+*/
 
 class FArrayHelper extends JArrayHelper
 {
@@ -254,6 +254,42 @@ class FArrayHelper extends JArrayHelper
 	{
 		reset($array);
 		return key($array);
+	}
+
+	/**
+	 * Iterates over $source comparing against $compare - returns a flat array of data
+	 *
+	 * @param   array   $source   Source array
+	 * @param   array   $compare  Array to compare against, if different from $source then this arrays data will be returned
+	 * @param   string  $prefix   Used as prefix in returned arrays data to indicated nested data e.g "join.3.elementname"
+	 *
+	 * @since   3.0.7 (audit)
+	 *
+	 * @return  array  2d array using nested key.dot.notation if nested differences found in the array
+	 */
+
+	public function array_diff_nested($source, $compare, $prefix = '')
+	{
+		$diff = array();
+		foreach ($source as $k => $v)
+		{
+			if (!is_array($v))
+			{
+				if ($v !== $compare[$k])
+				{
+
+					$diffKey = $prefix == '' ? $k : $prefix . '.' . $k;
+					$diff[$diffKey] = $compare[$k];
+				}
+			}
+			else
+			{
+				$thisPrefix = $prefix === '' ? $k : $prefix . '.' . $k;
+				$nested = FArrayHelper::array_diff_nested($source[$k], $compare[$k], $thisPrefix);
+				$diff = array_merge($diff, $nested);
+			}
+		}
+		return $diff;
 	}
 
 }
