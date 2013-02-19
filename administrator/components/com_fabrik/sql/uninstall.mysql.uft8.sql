@@ -12,4 +12,5 @@ DROP TABLE IF EXISTS  `#__fabrik_packages`;
 DROP TABLE IF EXISTS  `#__fabrik_visualizations`;
 DROP TABLE IF EXISTS  `#__fabrik_cron`;
 DROP TABLE IF EXISTS `#__fabrik_form_sessions`;
+DROP TABLE IF EXISTS `#__fabrik_audit`;
 

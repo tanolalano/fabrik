@@ -244,4 +244,21 @@ CREATE TABLE IF NOT EXISTS `#__fabrik_visualizations` (
 	`params` TEXT NOT NULL,
 	PRIMARY KEY (`id`)
 ) DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `#__fabrik_audit` (
+  `id` int(6) NOT NULL AUTO_INCREMENT,
+  `date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `action` char(10) NOT NULL,
+  `listid` int(6) NOT NULL,
+  `rowid` varchar(100) NOT NULL,
+  `userid` int(6) NOT NULL,
+  `data` text NOT NULL,
+  `rolledback` tinyint(1) NOT NULL DEFAULT '0',
+  `rollbackdate` DATETIME NOT NULL,
+  `rollbackuser` INT(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `listid` (`listid`,`rowid`),
+  KEY `rolledback` (`rolledback`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
+
 				

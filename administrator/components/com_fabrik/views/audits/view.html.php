@@ -68,6 +68,7 @@ class FabrikViewAudits extends JView
 
 		$this->userOptions = $model->getUserOptions();
 		$this->listOptions = $model->getListOptions();
+		$this->rollbackOptions = $model->getRollbackOptions();
 		$this->addToolbar();
 		parent::display($tpl);
 

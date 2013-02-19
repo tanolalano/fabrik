@@ -40,6 +40,9 @@ $listDirn	= $this->state->get('list.direction');
 				<?php echo JHtml::_('select.options', $this->listOptions, 'value', 'text', $this->state->get('filter.listid'), true);?>
 			</select>
 
+			<select name="filter_rolledback" class="inputbox" onchange="this.form.submit()">
+				<?php echo JHtml::_('select.options', $this->rollbackOptions, 'value', 'text', $this->state->get('filter.rolledback'), true);?>
+			</select>
 		</div>
 	</fieldset>
 	<div class="clr"> </div>
@@ -56,14 +59,14 @@ $listDirn	= $this->state->get('list.direction');
 				<th width="16%">
 					<?php echo JHTML::_('grid.sort', 'COM_FABRIK_LIST_NAME', 'list', $listDirn, $listOrder); ?>
 				</th>
-				<th width="17%">
+				<th width="7%">
 					<?php echo JHTML::_('grid.sort', 'COM_FABRIK_ROW', 'rowid', $listDirn, $listOrder); ?>
 				</th>
 				<th width="14%">
-					<?php echo JText::_('COM_FABRIK_DATE');?>
+					<?php echo JText::_('COM_FABRIK_FIELD_CREATE_DATE_LABEL');?>
 				</th>
 				<th width="5%">
-					<?php echo JText::_('COM_FABRIK_USER'); ?>
+					<?php echo JText::_('JGLOBAL_FIELD_CREATED_BY_LABEL'); ?>
 				</th>
 				<th width="5%">
 					<?php echo JText::_('COM_FABRIK_ACTION');?>
@@ -73,6 +76,12 @@ $listDirn	= $this->state->get('list.direction');
 				</th>
 				<th width="20%">
 					<?php echo JText::_('COM_FABRIK_ROLLBACK_DATA_TO'); ?>
+				</th>
+				<th width="5%">
+					<?php echo JTExt::_('COM_FABRIK_ROLLED_BACK_DATE')?>
+				</th>
+				<th width="5%">
+					<?php echo JTExt::_('COM_FABRIK_ROLLED_BACK_BY')?>
 				</th>
 			</tr>
 		</thead>
@@ -128,6 +137,12 @@ $listDirn	= $this->state->get('list.direction');
 				</td>
 				<td>
 					<?php echo $item->diff?>
+				</td>
+				<td>
+					<?php echo $item->rollbackdate?>
+				</td>
+				<td>
+					<?php echo $item->rollbackuser?>
 				</td>
 			</tr>
 			<?php endforeach; ?>

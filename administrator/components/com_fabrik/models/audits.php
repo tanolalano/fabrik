@@ -69,12 +69,13 @@ class FabrikModelAudits extends FabModelList
 		$query = $db->getQuery(true);
 
 		// Select the required fields from the table.
-		$query->select($this->getState('list.select', 'a.*, l.label AS list, u.name as user'));
+		$query->select($this->getState('list.select', 'a.*, l.label AS list, u.name as user, rolluser.name as rollbackuser'));
 		$query->from('#__{package}_audit AS a');
 
 		// Join to get list name
 		$query->join('LEFT', '#__{package}_lists AS l ON l.id = a.listid');
 		$query->join('LEFT', '#__users AS u ON u.id = a.userid');
+		$query->join('LEFT', '#__users AS rolluser ON rolluser.id = a.rollbackuser');
 
 		$search = $this->getState('filter.search');
 		if (!empty($search))
@@ -94,6 +95,9 @@ class FabrikModelAudits extends FabModelList
 		{
 			$query->where('u.id = ' . (int) $userid);
 		}
+
+		$rolledback = $this->getState('filter.rolledback');
+		$query->where('rolledback = ' . (int) $rolledback);
 
 		// Add the list ordering clause.
 		$orderCol = $this->state->get('list.ordering');
@@ -133,6 +137,14 @@ class FabrikModelAudits extends FabModelList
 		->join('LEFT', '#__{package}_lists AS l ON l.id = a.listid');
 		$db->setQuery($query);
 		return $db->loadObjectList();
+	}
+
+	public function getRollbackOptions()
+	{
+		$opts = array();
+		$opts[] = JHTML::_('select.option', '0', JText::_('COM_FABRIK_NOT_ROLLED_BACK'));
+		$opts[] = JHTML::_('select.option', '1', JText::_('COM_FABRIK_ROLLED_BACK'));
+		return $opts;
 	}
 
 	/**
@@ -261,7 +273,15 @@ class FabrikModelAudits extends FabModelList
 			{
 				$item = $this->getTable();
 				$item->load($id);
-				$item->delete();
+				$user = JFactory::getUser();
+				$now = JFactory::getDate();
+				$update = array();
+				$update['rolledback'] = 1;
+				$update['rollbackdate'] = $now->toSql();
+				$update['rollbackuser'] = $user->get('id');
+				$item->bind($update);
+				$item->store();
+				//$item->delete();
 			}
 			else
 			{
@@ -318,6 +338,12 @@ class FabrikModelAudits extends FabModelList
 		// Load the user filter state
 		$user = $app->getUserStateFromRequest($this->context . '.filter.userid', 'filter_userid', '');
 		$this->setState('filter.userid', $user);
+
+		// Load the rolledback filter state
+		$rolledback = $app->getUserStateFromRequest($this->context . '.filter.rolledback', 'filter_rolledback', '0');
+		$this->setState('filter.rolledback', $rolledback);
+
+
 
 		// List state information.
 		parent::populateState('label', 'asc');
