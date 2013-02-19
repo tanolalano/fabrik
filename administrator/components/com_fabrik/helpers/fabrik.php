@@ -110,6 +110,7 @@ class FabrikAdminHelper
 		JSubMenuHelper::addEntry(JText::_('COM_FABRIK_SUBMENU_CONNECTIONS'), 'index.php?option=com_fabrik&view=connections', $vName == 'connections');
 
 		JSubMenuHelper::addEntry(JText::_('COM_FABRIK_SUBMENU_CRONS'), 'index.php?option=com_fabrik&view=crons', $vName == 'crons');
+		JSubMenuHelper::addEntry(JText::_('COM_FABRIK_SUBMENU_AUDIT'), 'index.php?option=com_fabrik&view=audits', $vName == 'audits');
 
 	}
 
