@@ -275,11 +275,12 @@ class FArrayHelper extends JArrayHelper
 		{
 			if (!is_array($v))
 			{
-				if ($v !== $compare[$k])
+				$compareV = JArrayHelper::getValue($compare, $k);
+				if ($v !== $compareV)
 				{
 
 					$diffKey = $prefix == '' ? $k : $prefix . '.' . $k;
-					$diff[$diffKey] = $compare[$k];
+					$diff[$diffKey] = $compareV;
 				}
 			}
 			else
