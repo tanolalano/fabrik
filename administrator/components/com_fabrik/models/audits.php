@@ -263,7 +263,8 @@ class FabrikModelAudits extends FabModelList
 				{
 					$groupid = $groupIds[$joinId]->group_id;
 
-					$repeatTotals[$groupid] = count($joinData[array_keys($joinData)[0]]);
+					$firstKey = FArrayHelper::firstKey($joinData);
+					$repeatTotals[$groupid] = count($joinData[$firstKey]);
 				}
 			}
 			JRequest::setVar('fabrik_repeat_group', $repeatTotals);
