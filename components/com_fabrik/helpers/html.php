@@ -1323,7 +1323,7 @@ EOD;
 		$json = self::autoCompletOptions($htmlid, $elementid, $plugin, $opts);
 		$str = json_encode($json);
 		$class = $plugin === 'cascadingdropdown' ? 'FabCddAutocomplete' : 'FbAutocomplete';
-		self::addScriptDeclaration("head.ready(function() { new $class('$htmlid', $str); });");
+		self::addScriptDeclaration("head.js('media/com_fabrik/js/autocomplete.js', function() { new $class('$htmlid', $str); });");
 	}
 
 	/**

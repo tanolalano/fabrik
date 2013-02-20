@@ -176,9 +176,7 @@ var FbListRadiusSearch = new Class({
 			this.win.open();
 		}.bind(this));
 		
-		console.log(b);
 		c.getParent().adopt(b);
-		console.log(c);
 		var winOpts = {
 			'id': 'radius_search',
 			'title': Joomla.JText._('PLG_LIST_RADIUS_SEARCH'),

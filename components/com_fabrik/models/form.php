@@ -260,11 +260,11 @@ class FabrikFEModelForm extends FabModelForm
 
 	/**
 	 * Are we rolling back when processing()
-	 * 
+	 *
 	 * @var bool
 	 */
 	public $rollBack = false;
-	
+
 	/**
 	 * Constructor
 	 *
@@ -2088,7 +2088,11 @@ class FabrikFEModelForm extends FabModelForm
 		{
 			$audit = JModel::getInstance('Audit', 'FabrikFEModel');
 			$action = $rowId == 0 ? 'new' : 'edit';
-			$audit->store($this, $rowId, $action);
+			if (!$audit->store($this, $rowId, $action))
+			{
+				JError::raiseNotice(500, 'Audit didnt save');
+			}
+
 		}
 		$app = JFactory::getApplication();
 		$this->getGroupsHiarachy();
